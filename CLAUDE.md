@@ -96,6 +96,26 @@ field name / controlled vocabulary term / export binding. That decision belongs 
 standard at `C:\Users\nic\crn_data` — I can describe what needs to change there, but I should
 not make the change in this copy."*
 
+## Critical: the HTML is minified
+
+**The entire body of each sheet — every section, card, template, and field — is on a single
+very long line** (typically line 222). The `<style>` block occupies lines 8–220, then
+`</head><body>` on line 221, then the entire `<main class="sheet">...</main>` on one line,
+then the `__SHEET__` JSON on the next line, then the runtime `<script>` starts on the line
+after that.
+
+This has two consequences for editing:
+
+1. **You must use short, unique substrings as `old_string` in the Edit tool.** You cannot
+   match "the whole line" — it is 50–200 KB long. Instead, match just enough surrounding
+   context to be unique. Always include an adjacent attribute or tag boundary.
+
+2. **Use `replace_all: true` for label changes.** A label like `>Taken by</label>` appears
+   once in the `<template>` and once in each pre-printed print-only card (typically 3). Using
+   `replace_all` changes all occurrences. If the string is not unique to the target field
+   (e.g. `>Plot</label>` appears in multiple sections), include more context — the preceding
+   `name=` or `data-field=` attribute — to disambiguate.
+
 ## How to find a field
 
 To locate where a specific field appears in a sheet:
@@ -114,20 +134,20 @@ To locate where a specific field appears in a sheet:
 
 ```
 <main class="sheet">
-  <header class="masthead">         ← title, scope, version stamp
-  <div class="context">             ← pre-printed masthead (site, date, campaign, plot)
-  <section id="...">                ← one per activity block
-    <h2>                            ← section title
-    <p class="hint">                ← instruction text (grey, optional)
-    <div class="fieldrow">          ← one per field (label + input)
+  <header class="masthead">         <- title, scope, version stamp
+  <div class="context">             <- pre-printed masthead (site, date, campaign, plot)
+  <section id="...">                <- one per activity block
+    <h2>                            <- section title
+    <p class="hint">                <- instruction text (grey, optional)
+    <div class="fieldrow">          <- one per field (label + input)
     <article class="card" data-row="N" data-section="..." data-key="{...}">
-                                    ← one per repeating record (e.g. one soil core, one well)
-  <section id="signoff">            ← always last content section; two-slot sign-off
-  <div class="actions screen-only"> ← Export CSV / Print buttons
-  <footer>                          ← retention instruction + build provenance
+                                    <- one per repeating record (e.g. one soil core, one well)
+  <section id="signoff">            <- always last content section; two-slot sign-off
+  <div class="actions screen-only"> <- Export CSV / Print buttons
+  <footer>                          <- retention instruction + build provenance
 </main>
-<script>window.__SHEET__ = {...}</script>  ← export contract (DO NOT HAND-EDIT)
-<script>...</script>                       ← runtime (inline, same on every sheet)
+<script>window.__SHEET__ = {...}</script>  <- export contract (DO NOT HAND-EDIT)
+<script>...</script>                       <- runtime (inline, same on every sheet)
 ```
 
 **Key CSS classes:**
@@ -138,6 +158,161 @@ To locate where a specific field appears in a sheet:
 - `.unit` — the fixed unit label next to a numeric input (never an editable field)
 - `.conv` — the live-converted readout (e.g. "= 0.1 m" next to a cm input)
 - `.mdl` — the `< MDL` checkbox that disables its paired numeric
+- `.photo-attach` — inline photo attachment block (V11; see photo-attach section below)
+
+### Repeating elements: templates and print-only cards
+
+Every repeating section (cards you can add) has this structure:
+
+```
+<template id="tmpl-SECTIONID">
+  <article class="card" data-row="__N__" data-section="SECTIONID" ...>
+    ...fields with __N__ in name attributes...
+  </article>
+</template>
+<button class="add-card-btn screen-only" data-add-section="SECTIONID">+ Add ...</button>
+<article class="card print-only" data-skip-if-empty>...fields with cP0 prefix...</article>
+<article class="card print-only" data-skip-if-empty>...fields with cP1 prefix...</article>
+<article class="card print-only" data-skip-if-empty>...fields with cP2 prefix...</article>
+```
+
+- The `<template>` is what the "+ Add" button clones on screen. Its field names use `__N__`
+  as a placeholder that gets replaced with a counter.
+- The `print-only` cards are blank cards visible only when printed (paper backup). Their field
+  names use `cP0`, `cP1`, `cP2` prefixes.
+- **Both template and print-only cards have identical field labels and structure.** Any label
+  or hint change must hit both. Using `replace_all: true` handles this automatically when the
+  search string is unique.
+
+## Precise edit recipes
+
+These are the exact HTML patterns for each kind of safe edit. Every example uses the Edit tool
+with `replace_all: true` unless stated otherwise.
+
+### 1. Change a field label
+
+The pattern is: `>OLD LABEL</label>` or `>OLD LABEL<span class="req"` (if the field is required).
+
+**Simple label (not required):**
+```
+old_string: >Siting notes</label>
+new_string: >Installation notes</label>
+replace_all: true
+```
+
+**Required field label (has a `*` indicator):**
+```
+old_string: >Device ID<span class="req"
+new_string: >Instrument ID<span class="req"
+replace_all: true
+```
+
+**Ambiguous label** (e.g. "Plot" appears in multiple sections): include the preceding
+`data-field` attribute to disambiguate:
+```
+old_string: data-field="bicrn_plot_id"></textarea></div></div><div class="fieldrow"><label for="devices
+new_string: (don't change this — it's load-bearing)
+```
+Instead, include enough of the fieldrow to be unique:
+```
+old_string: bicrn_replaces_device_id">Replaces (if a swap)</label>
+new_string: bicrn_replaces_device_id">Replaces (swap only)</label>
+replace_all: true
+```
+
+### 2. Change a hint (grey instruction text below a section heading)
+
+```
+old_string: <p class="hint">One card per device. Record the device ID, type, and plot.
+new_string: <p class="hint">One card per installed device. Record the device ID, type, and plot.
+```
+Hints appear once per section, so `replace_all` is not needed.
+
+### 3. Change a section title
+
+```
+old_string: <h2>Devices installed</h2>
+new_string: <h2>Instruments installed</h2>
+```
+Each `<h2>` appears once. No `replace_all` needed.
+
+### 4. Change the scope text (masthead subtitle)
+
+```
+old_string: <p class="scope">One sheet per installation day. Record what you put in the ground
+new_string: <p class="scope">One sheet per installation visit. Record what you put in the ground
+```
+
+### 5. Change footer text
+
+```
+old_string: <footer>Retain this sheet. Scan the signed original
+new_string: <footer>Keep this sheet. Scan the signed original
+```
+
+### 6. Change a radio/select option's display text
+
+The pattern is: `value="TERM"> Display text</label>`. Change only the display text, never
+the `value`:
+
+```
+old_string: value="soil_moisture_probe"> Soil-moisture probe</label>
+new_string: value="soil_moisture_probe"> Soil moisture probe</label>
+replace_all: true
+```
+
+### 7. Change the sheet title (H1)
+
+```
+old_string: <h1>Device installation</h1>
+new_string: <h1>Instrument installation</h1>
+```
+Also update the `<title>` tag near line 6:
+```
+old_string: <title>V11 - Device installation</title>
+new_string: <title>V11 - Instrument installation</title>
+```
+
+### 8. Change help text on a field (tooltip or inline help)
+
+Help text appears as `title="..."` on inputs or as `<small>` within table cells. Search for
+the field name and its surrounding context.
+
+## Photo-attach system (V11)
+
+V11's "Devices installed" section has an **inline photo attachment** feature. Each device card
+contains a nested photo block that lets technicians attach a photo without switching to the
+dedicated Photographs section.
+
+The structure inside each device card (both template and print-only):
+```
+<div class="photo-attach screen-only" data-photo-attach>
+  <button class="photo-attach-toggle" data-photo-toggle="...">Attach photo</button>
+  <div class="photo-attach-area" id="pa_..." hidden>
+    <article class="card photo-inline" data-section="photos_inline_devices" ...>
+      <div class="drop-zone">Drop a photo here</div>
+      ...Photo ID, Taken by, Notes fields...
+      ...hidden inputs for subject_type, subject_id, etc...
+    </article>
+  </div>
+</div>
+```
+
+Key points:
+- The photo-attach block is `screen-only` — it does not appear on printed sheets (print-only
+  cards have no photo-attach block).
+- `data-subject-from="bicrn_device_id"` on the inner card tells the runtime to inherit the
+  device ID as the photo's subject ID during export.
+- Subject type is pre-filled as `instrument_installation` via a hidden input.
+- Because `instrument_installation` has `requires_geometry: FALSE`, the inline block omits
+  geometry fields (orientation, mount, camera height, scale reference) — those are hidden
+  inputs instead, exported as the absent token.
+- The dedicated Photographs section still exists at the bottom for photos that don't belong
+  to a specific device card.
+
+**Do not edit the photo-attach block's data attributes, hidden inputs, or section bindings.**
+The button text ("Attach photo"), drop zone text, and visible field labels (Photo ID, Taken by,
+Notes) are safe to change with the same label-edit pattern above.
 
 ## Edit ledger — making changes durable
 
@@ -151,7 +326,7 @@ YYYY-MM-DD | V<N> | <section or element> | <what changed> | <why>
 Example:
 ```
 2026-09-18 | V4 | section#bracket hint | Reworded to clarify span gas procedure | Site manager feedback
-2026-09-18 | V1 | .masthead h1 | "Site visit" → "Soil coring visit" | Distinguish from V3/V11
+2026-09-18 | V1 | .masthead h1 | "Site visit" -> "Soil coring visit" | Distinguish from V3/V11
 ```
 
 This ledger exists so that changes can be **replayed** into the layout files at
@@ -192,6 +367,18 @@ them reintroduces a class of error the sheets were built to prevent.
 8. **Screen and print are the same DOM.** `@media print` re-lays it out but never selects a
    different field set. If the two diverge, the paper copy drifts — and the paper copy is used
    precisely when nobody can notice.
+
+## Checklist for every edit
+
+1. **Read** the file before editing (Edit tool requirement).
+2. **Grep** for the string you plan to change to confirm how many times it appears and in
+   which contexts. If it appears in both template and print-only cards, use `replace_all`.
+3. **Edit** with a short, unique `old_string`. Include an adjacent attribute or tag to
+   anchor it. Never try to match a whole line — the body is one line.
+4. **Grep** again after editing to confirm the change landed everywhere and nothing was
+   missed or broken.
+5. **Record** the change in `CHANGELOG.md`.
+6. **Mark** the version stamp with `(edited)` if this is the first edit to this sheet.
 
 ## Git
 
