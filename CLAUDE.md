@@ -316,22 +316,41 @@ Notes) are safe to change with the same label-edit pattern above.
 
 ## Edit ledger — making changes durable
 
-Every edit must be recorded in `CHANGELOG.md` (create it on first edit). Each entry is one
-line:
+**Every edit to a sheet must be recorded in `CHANGELOG.md`.** This is not optional. The
+changelog is the only mechanism for carrying changes back to the main project — without an
+entry, a change made here will be silently overwritten by the next build.
 
-```
-YYYY-MM-DD | V<N> | <section or element> | <what changed> | <why>
+Update the changelog **in the same response** as the edit, not as a separate step. If you
+make an edit and forget the changelog entry, add it immediately when you notice.
+
+### Format
+
+Entries go under a date heading, newest first:
+
+```markdown
+### YYYY-MM-DD
+
+- **V4** `section#bracket .hint` — Reworded to clarify span gas procedure: "Fill this block
+  TWICE" → "Record TWO readings — one before and one after the round".
+  *Why: site manager feedback that "TWICE" was ambiguous.*
+
+- **V1** `.masthead h1` — "Site visit" → "Soil coring visit".
+  *Why: distinguish from V3/V11 which are also site visits.*
 ```
 
-Example:
-```
-2026-09-18 | V4 | section#bracket hint | Reworded to clarify span gas procedure | Site manager feedback
-2026-09-18 | V1 | .masthead h1 | "Site visit" -> "Soil coring visit" | Distinguish from V3/V11
-```
+### What to include in each entry
 
-This ledger exists so that changes can be **replayed** into the layout files at
-`C:\Users\nic\crn_data\sheets\layouts/` when it is time to merge back. Without it, a change
-made here is a one-way fork.
+1. **Which sheet** — the V-number.
+2. **Where in the sheet** — section id, CSS selector, or element description, specific enough
+   that someone reading this can find the spot in the layout YAML.
+3. **What changed** — the old text/value and the new text/value. For renames, use `→`. For
+   rewrites, quote enough of the old and new to be unambiguous.
+4. **Why** — the motivation. "Site manager feedback", "reviewer request", "consistency with
+   V3" — whatever prompted the change. This is what the person merging back needs to judge
+   whether the change still applies.
+
+When a single edit touches the same element across multiple sheets, list every affected sheet
+in one entry rather than repeating the entry thirteen times.
 
 **Version stamp rule:** when you edit a sheet, append `(edited)` to the **visible masthead
 text only** — the `<div class="stamp">` element. For example, `Sheet V4 v1.0.0` becomes
@@ -377,7 +396,8 @@ them reintroduces a class of error the sheets were built to prevent.
    anchor it. Never try to match a whole line — the body is one line.
 4. **Grep** again after editing to confirm the change landed everywhere and nothing was
    missed or broken.
-5. **Record** the change in `CHANGELOG.md`.
+5. **Record** the change in `CHANGELOG.md` — same response, not later. Include the sheet,
+   location, old → new text, and why. See the edit ledger section for the format.
 6. **Mark** the version stamp with `(edited)` if this is the first edit to this sheet.
 
 ## Git
