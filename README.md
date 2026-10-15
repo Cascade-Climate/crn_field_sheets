@@ -16,7 +16,7 @@ controlled vocabularies, export bindings) belong in the main project.
 
 ## What is in `sheets/`
 
-Thirteen HTML files, one per visit type:
+Fifteen HTML files, one per visit type:
 
 | Sheet | What the crew does |
 |-------|--------------------|
@@ -33,6 +33,8 @@ Thirteen HTML files, one per visit type:
 | V11 | Device installation — sensor and logger emplacement |
 | V12 | Agricultural amendments — fertilizer, lime, tillage |
 | V13 | Plot delineation — initial plot geometry and monuments |
+| V14 | FIZ soil coring — feedstock incorporation zone push cores |
+| V15 | AIZ soil augering — agronomic + deep zone bucket auger |
 
 Open any `.html` file in a browser to see the digital form. Print it (or save as PDF) to
 see the paper version.

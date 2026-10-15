@@ -1,0 +1,1210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>V10 - Monolith extraction</title>
+<style>
+:root { --ink: #16191d; --ink-soft: #4a5159; --rule: #c3c9d1; --rule-firm: #7b848f; --ground: #ffffff; --panel: #f4f6f8; --accent: #1c4f7c; --flag: #8a4b12; --box: #fdfdfd; }
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #e7eaee; --ink-soft: #a8b1bb; --rule: #3a424c; --rule-firm: #6d7883; --ground: #14171a; --panel: #1c2126; --accent: #7fb3dd; --flag: #d9a066; --box: #1a1f24; }
+}
+:root[data-theme="dark"] { --ink: #e7eaee; --ink-soft: #a8b1bb; --rule: #3a424c; --rule-firm: #6d7883; --ground: #14171a; --panel: #1c2126; --accent: #7fb3dd; --flag: #d9a066; --box: #1a1f24; }
+:root[data-theme="light"] { --ink: #16191d; --ink-soft: #4a5159; --rule: #c3c9d1; --rule-firm: #7b848f; --ground: #ffffff; --panel: #f4f6f8; --accent: #1c4f7c; --flag: #8a4b12; --box: #fdfdfd; }
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 1.5rem; background: var(--ground); color: var(--ink);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+        Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+.sheet { max-width: 62rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* --- masthead ------------------------------------------------------------------ */
+.masthead { display: flex; justify-content: space-between; align-items: flex-start;
+            gap: 1rem; border-bottom: 2px solid var(--rule-firm); padding-bottom: .75rem; }
+.masthead h1 { margin: 0; font-size: 1.35rem; letter-spacing: -.01em; text-wrap: balance; }
+.masthead .scope { margin: .25rem 0 0; color: var(--ink-soft); font-size: .85rem; max-width: 40rem; }
+.stamp { text-align: right; font-size: .72rem; color: var(--ink-soft); line-height: 1.6;
+         white-space: nowrap; }
+.stamp b { color: var(--ink); font-weight: 600; }
+
+/* --- pre-printed context -------------------------------------------------------- */
+.context { background: var(--panel); border: 1px solid var(--rule); border-radius: 3px;
+           padding: .75rem 1rem; display: grid; gap: .5rem 1.5rem;
+           grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.context .item { display: flex; flex-direction: column; gap: .1rem; }
+.context .k { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em;
+              color: var(--ink-soft); }
+.context .v { font-weight: 600; font-size: .92rem; }
+
+section > h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em;
+               color: var(--accent); margin: 0 0 .5rem; padding-bottom: .3rem;
+               border-bottom: 1px solid var(--rule); }
+section > .hint { margin: -.25rem 0 .6rem; font-size: .78rem; color: var(--ink-soft); }
+
+/* --- the repeating block --------------------------------------------------------- */
+.grid-wrap { overflow-x: auto; }
+table.grid { border-collapse: collapse; width: 100%; font-size: .82rem; }
+table.grid th, table.grid td { border: 1px solid var(--rule); padding: .3rem .4rem;
+                               text-align: left; vertical-align: middle; }
+table.grid thead th { background: var(--panel); font-size: .68rem; text-transform: uppercase;
+                      letter-spacing: .04em; font-weight: 600; white-space: nowrap; }
+table.grid thead th .u { display: block; text-transform: none; letter-spacing: 0;
+                         font-weight: 400; color: var(--ink-soft); }
+table.grid td.pre { background: var(--panel); font-weight: 600; white-space: nowrap; }
+table.grid td.pre small { display: block; font-weight: 400; color: var(--ink-soft); }
+tr.reserve td.pre { border-left: 3px solid var(--flag); }
+.role-tag { font-size: .62rem; text-transform: uppercase; letter-spacing: .05em;
+            color: var(--flag); font-weight: 700; }
+table.grid td:not(.pre) { min-width: 5.5rem; }
+table.grid .numwrap { flex-wrap: wrap; }
+table.grid .numwrap input { flex: 1 1 3rem; width: auto; }
+table.grid .numwrap .conv { flex-basis: 100%; min-width: 0; }
+
+/* --- inputs ---------------------------------------------------------------------- */
+input[type=text], input[type=number], input[type=time], input[type=date], select, textarea {
+  font: inherit; font-size: .85rem; color: var(--ink); background: var(--box);
+  border: 1px solid var(--rule-firm); border-radius: 2px; padding: .22rem .35rem;
+  width: 100%; min-width: 0;
+}
+textarea { min-height: 3.5rem; resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px;
+}
+input.bad, select.bad { border-color: #b3261e; background: #fff2f0; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) input.bad,
+  :root:not([data-theme="light"]) select.bad { background: #3a1d1a; } }
+:root[data-theme="dark"] input.bad, :root[data-theme="dark"] select.bad { background: #3a1d1a; }
+.unit { font-size: .72rem; color: var(--ink-soft); margin-left: .25rem; white-space: nowrap; }
+.numwrap { display: flex; align-items: center; gap: .15rem; }
+.conv { font-size: .7rem; color: var(--accent); white-space: nowrap; min-width: 4.5rem; }
+.mdl { display: inline-flex; align-items: center; gap: .2rem; font-size: .7rem;
+       color: var(--ink-soft); white-space: nowrap; }
+
+.fieldrow { display: grid; grid-template-columns: 15rem 1fr; gap: .5rem 1rem;
+            align-items: center; padding: .35rem 0; border-bottom: 1px dotted var(--rule); }
+.fieldrow:last-child { border-bottom: 0; }
+.fieldrow label { font-size: .85rem; font-weight: 500; }
+.fieldrow label .req { color: #b3261e; margin-left: .15rem; }
+.fieldrow .desc { grid-column: 1 / -1; font-size: .72rem; color: var(--ink-soft);
+                  margin-top: -.25rem; }
+.ticks { display: flex; flex-wrap: wrap; gap: .3rem .9rem; }
+.ticks label { display: inline-flex; align-items: center; gap: .3rem; font-weight: 400;
+               font-size: .82rem; }
+
+/* --- sign-off -------------------------------------------------------------------- */
+.card { border: 1px solid var(--rule); border-radius: 4px; padding: .6rem .8rem;
+        margin: 0 0 .6rem; break-inside: avoid; position: relative; }
+.remove-card-btn { position: absolute; top: .3rem; right: .4rem; z-index: 2;
+                   background: transparent; border: none; color: var(--ink-soft);
+                   font-size: 1.1rem; cursor: pointer; line-height: 1;
+                   padding: .1rem .3rem; border-radius: 3px; }
+.remove-card-btn:hover { color: var(--flag); background: rgba(200,50,50,.12); }
+.cardhead { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; margin: 0 0 .5rem;
+            padding-bottom: .4rem; border-bottom: 1px dashed var(--rule); }
+.cardhead dt { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+               color: var(--ink-soft); }
+.cardhead dd { margin: 0; font-weight: 600; }
+.signoff { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.sig { border: 1px solid var(--rule-firm); border-radius: 3px; padding: .6rem .75rem;
+       display: flex; flex-direction: column; gap: .4rem; }
+.sig h3 { margin: 0; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+          color: var(--ink-soft); }
+.sigline { border-bottom: 1px solid var(--ink); height: 1.9rem; margin-top: .2rem; }
+.sigline-cap { font-size: .65rem; color: var(--ink-soft); }
+.gate { font-size: .74rem; color: var(--flag); border-left: 3px solid var(--flag);
+        padding-left: .5rem; }
+
+/* --- add-card (screen only) -------------------------------------------------------- */
+.add-card-btn { font: inherit; font-size: .82rem; font-weight: 600; padding: .4rem .8rem;
+                border-radius: 3px; border: 1px dashed var(--accent); background: transparent;
+                color: var(--accent); cursor: pointer; margin: 0 0 .6rem; }
+.add-card-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.no-photos-toggle { display: flex; align-items: center; gap: .4rem;
+                    font-size: .82rem; color: var(--ink-soft); margin: 0 0 .6rem;
+                    cursor: pointer; }
+.no-photos-toggle input { margin: 0; }
+.no-photos-active .add-card-btn,
+.no-photos-active .card { display: none !important; }
+
+/* --- photo drop zone (screen only) ----------------------------------------------- */
+.drop-zone { border: 2px dashed var(--rule); border-radius: 4px; padding: .6rem;
+             text-align: center; font-size: .75rem; color: var(--ink-soft);
+             cursor: pointer; margin: 0 0 .5rem; transition: border-color .15s; }
+.drop-zone.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.drop-zone img { display: block; max-width: 100%; max-height: 8rem; margin: .3rem auto 0;
+                 border-radius: 2px; object-fit: contain; }
+.drop-zone { position: relative; }
+.remove-photo { position: absolute; top: .2rem; right: .2rem; width: 1.5rem; height: 1.5rem;
+                border: none; border-radius: 50%; background: var(--ink-soft); color: var(--ground);
+                font-size: 1rem; line-height: 1; cursor: pointer; padding: 0;
+                display: flex; align-items: center; justify-content: center; }
+.remove-photo:hover { background: #c00; }
+@media print { .drop-zone { display: none !important; } }
+
+/* --- inline photo attachment (screen only) --------------------------------------- */
+.photo-attach { margin-top: .5rem; border-top: 1px dashed var(--rule); padding-top: .4rem; }
+.photo-attach-toggle { font: inherit; font-size: .78rem; font-weight: 600; padding: .3rem .6rem;
+                        border-radius: 3px; border: 1px dashed var(--accent); background: transparent;
+                        color: var(--accent); cursor: pointer; display: inline-flex;
+                        align-items: center; gap: .3rem; }
+.photo-attach-area { margin-top: .4rem; }
+.photo-attach-area .card { margin: 0; border-style: dashed; font-size: .82rem; }
+@media print { .photo-attach { display: none !important; } }
+
+/* --- actions (screen only) -------------------------------------------------------- */
+.actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center;
+           border-top: 1px solid var(--rule); padding-top: .9rem; }
+button { font: inherit; font-size: .85rem; font-weight: 600; padding: .45rem .9rem;
+         border-radius: 3px; border: 1px solid var(--accent); background: var(--accent);
+         color: #fff; cursor: pointer; }
+button.ghost { background: transparent; color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+#status { font-size: .8rem; color: var(--ink-soft); }
+#status.err { color: #b3261e; font-weight: 600; }
+
+/* --- auto-save indicator (screen only, never prints) ----------------------------- */
+#autosave { font-size: .75rem; color: var(--ink-soft); margin-left: auto; display: flex;
+            align-items: center; gap: .4rem; }
+#autosave .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+#autosave .dot.ok { background: #2e7d32; }
+#autosave .dot.warn { background: #d9a066; }
+@media (prefers-color-scheme: dark) {
+  #autosave .dot.ok { background: #66bb6a; }
+}
+:root[data-theme="dark"] #autosave .dot.ok { background: #66bb6a; }
+:root[data-theme="light"] #autosave .dot.ok { background: #2e7d32; }
+#autosave button { font-size: .72rem; padding: .15rem .45rem; font-weight: 400;
+                   background: transparent; color: var(--accent); border: 1px solid var(--rule); }
+.autosave-banner { font-size: .78rem; color: var(--ink-soft); background: var(--panel);
+                   border: 1px solid var(--rule); border-radius: 3px; padding: .45rem .75rem;
+                   display: flex; align-items: center; gap: .6rem; }
+.autosave-banner button { font-size: .72rem; padding: .15rem .45rem; font-weight: 400;
+                          background: transparent; color: var(--accent);
+                          border: 1px solid var(--rule); }
+
+footer { font-size: .7rem; color: var(--ink-soft); border-top: 1px solid var(--rule);
+         padding-top: .6rem; line-height: 1.6; }
+
+/* --- print: the same DOM, laid out as a paper sheet -------------------------------- */
+@media print {
+  @page { size: A4 portrait; margin: 12mm 10mm; }
+  :root { --ink: #000; --ink-soft: #333; --rule: #999; --rule-firm: #000; --ground: #fff;
+          --panel: #fff; --accent: #000; --flag: #000; --box: #fff; }
+  body { padding: 0; font-size: 9.5pt; }
+  .sheet { max-width: none; gap: .8rem; }
+  .actions, .screen-only { display: none !important; }
+  .print-only { display: block !important; }
+  .context { border: 1px solid #000; }
+  section { break-inside: avoid; }
+  table.grid { font-size: 8pt; }
+  table.grid th, table.grid td { border: .6pt solid #000; padding: .1rem .2rem; }
+  /* Inputs become ruled boxes: printed empty, filled by hand. */
+  input[type=text], input[type=number], input[type=time], input[type=date], select,
+  textarea { border: 0; border-bottom: .6pt solid #000; border-radius: 0; background: none;
+             padding: 0; min-height: 1.4em; -webkit-appearance: none; appearance: none; }
+  table.grid input, table.grid select { border-bottom: 0; min-height: 1.5em; }
+  .conv { display: none; }
+  table.grid td:not(.pre) { min-width: 0; }
+  textarea { border: .6pt solid #000; min-height: 2.2cm; }
+  .ticks label::before { content: "\2610"; font-size: 1.1em; }
+  .ticks input[type=radio], .ticks input[type=checkbox] { display: none; }
+  .mdl input { display: none; }
+  .mdl::before { content: "\2610"; }
+  footer { border-top: .6pt solid #000; }
+}
+.print-only { display: none; }
+</style>
+</head>
+<body>
+<main class="sheet"><header class="masthead"><div><h1>Monolith extraction</h1><p class="scope">One sheet per extraction day. Work down the monolith locations, record the extraction QC for each tube. If a monolith is rejected for compaction above 10%, record the rejection in deviations and restart at an adjacent location — only accepted monoliths get a row here.</p></div><div class="stamp">Sheet <b>V10</b> v1.0.0<br>Standard <b>0.3.0-dev</b><br>Stream porewater &middot; en</div></header><div class="context"><div class="item"><span class="k">Site</span><span class="v">BR-CRN01</span></div><div class="item"><span class="k">Date</span><input type="date" class="v ctx-input" placeholder="2027-08-14"></div><div class="item"><span class="k">Activity</span><span class="v">Monolith extraction</span></div><div class="item"><span class="k">SOP</span><span class="v">CRN-SOP-ME-001</span></div><div class="item"><span class="k">SOP version</span><span class="v">0.1</span></div></div><section id="conditions"><h2>On arrival</h2><div class="fieldrow"><label for="f__bicrn_site_visit__bicrn_visit_arrival_time">Arrived</label><div><input type="time" name="f__bicrn_site_visit__bicrn_visit_arrival_time" data-field="bicrn_visit_arrival_time"></div></div><div class="fieldrow"><label for="f__bicrn_site_visit__bicrn_visit_crew_size">People on site</label><div><span class="numwrap"><input type="number" step="any" name="f__bicrn_site_visit__bicrn_visit_crew_size" data-field="bicrn_visit_crew_size" data-transform=""></span></div></div><div class="fieldrow"><label for="f__bicrn_site_visit__bicrn_weather_condition">Conditions</label><div><div class="ticks"><label><input type="radio" name="f__bicrn_site_visit__bicrn_weather_condition" value="clear" data-field="bicrn_weather_condition"> Clear</label><label><input type="radio" name="f__bicrn_site_visit__bicrn_weather_condition" value="partly_cloudy" data-field="bicrn_weather_condition"> Partly cloudy</label><label><input type="radio" name="f__bicrn_site_visit__bicrn_weather_condition" value="overcast" data-field="bicrn_weather_condition"> Overcast</label><label><input type="radio" name="f__bicrn_site_visit__bicrn_weather_condition" value="light_rain" data-field="bicrn_weather_condition"> Light rain</label><label><input type="radio" name="f__bicrn_site_visit__bicrn_weather_condition" value="heavy_rain" data-field="bicrn_weather_condition"> Heavy rain</label><label><input type="radio" name="f__bicrn_site_visit__bicrn_weather_condition" value="fog" data-field="bicrn_weather_condition"> Fog or mist</label></div></div></div><div class="fieldrow"><label for="f__bicrn_site_visit__bicrn_air_temperature">Air temperature</label><div><span class="numwrap"><input type="number" step="any" name="f__bicrn_site_visit__bicrn_air_temperature" data-field="bicrn_air_temperature" data-transform=""><span class="unit">°C</span></span></div></div><div class="fieldrow"><label for="f__bicrn_site_visit__bicrn_antecedent_rainfall">Rain since last visit</label><div><span class="numwrap"><input type="number" step="any" name="f__bicrn_site_visit__bicrn_antecedent_rainfall" data-field="bicrn_antecedent_rainfall" data-transform=""><span class="unit">mm</span></span></div></div><div class="fieldrow"><label for="f__bicrn_site_visit__bicrn_antecedent_rainfall_window">Over how many hours</label><div><span class="numwrap"><input type="number" step="any" name="f__bicrn_site_visit__bicrn_antecedent_rainfall_window" data-field="bicrn_antecedent_rainfall_window" data-transform=""></span></div></div><div class="fieldrow"><label for="f__bicrn_site_visit__bicrn_field_conditions_note">Ground and access</label><div><input type="text" name="f__bicrn_site_visit__bicrn_field_conditions_note" data-field="bicrn_field_conditions_note"></div></div></section><section id="activities"><h2>What we did</h2><div class="fieldrow"><label for="f__bicrn_visit_activity__bicrn_activity_person_id">Done by</label><div><input type="text" name="f__bicrn_visit_activity__bicrn_activity_person_id" data-field="bicrn_activity_person_id"></div></div><div class="fieldrow"><label for="f__bicrn_visit_activity__bicrn_activity_start_time">Started</label><div><input type="time" name="f__bicrn_visit_activity__bicrn_activity_start_time" data-field="bicrn_activity_start_time"></div></div><div class="fieldrow"><label for="f__bicrn_visit_activity__bicrn_activity_end_time">Finished</label><div><input type="time" name="f__bicrn_visit_activity__bicrn_activity_end_time" data-field="bicrn_activity_end_time"></div></div><div class="fieldrow"><label for="f__bicrn_visit_activity__bicrn_activity_note">Note</label><div><input type="text" name="f__bicrn_visit_activity__bicrn_activity_note" data-field="bicrn_activity_note"></div></div></section><section id="monoliths"><h2>Monoliths extracted</h2><p class="hint">One block per monolith. Pre-printed blocks cover the planned locations; add a blank card for any unplanned extraction. Record the conditioning you applied, the compaction offset after pressing, and the condition of the base and rim. Only accepted monoliths (compaction below 10%) get a row — rejected attempts go in deviations below.</p><label class="no-photos-toggle screen-only"><input type="checkbox" name="no_photos_monoliths" data-no-photos="monoliths"> No monoliths were recorded</label><article class="card" data-row="0" data-section="monoliths" data-key="{&quot;bicrn_capture_area&quot;: &quot;314.16&quot;, &quot;bicrn_depth_selection_basis&quot;: &quot;matched_to_soil_core&quot;, &quot;bicrn_depth_zone&quot;: &quot;feedstock_incorporation&quot;, &quot;bicrn_device_id&quot;: &quot;LYS-P02-020&quot;, &quot;bicrn_divergence_tube_diameter&quot;: &quot;20&quot;, &quot;bicrn_divergence_tube_length&quot;: &quot;45&quot;, &quot;bicrn_equilibration_period&quot;: &quot;60&quot;, &quot;bicrn_extraction_tube_material&quot;: &quot;Bev-A-Line&quot;, &quot;bicrn_geotextile_mesh&quot;: &quot;180 um polyester&quot;, &quot;bicrn_reservoir_volume&quot;: &quot;2000&quot;, &quot;bicrn_wick_material&quot;: &quot;fiberglass&quot;, &quot;bicrn_wick_tension&quot;: &quot;10&quot;, &quot;bicrn_wick_tension_basis&quot;: &quot;site water-retention curve, CRN-SOP-PW-002 v1.0&quot;}" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="fieldrow"><label for="monoliths_c0__bicrn_device_id">Monolith ID<span class="req" title="required">*</span></label><div><textarea name="monoliths_c0__bicrn_device_id" data-field="bicrn_device_id" required></textarea></div></div><div class="fieldrow"><label for="monoliths_c0__Latitude">Latitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-90" max="90" name="monoliths_c0__Latitude" data-field="Latitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_c0__Longitude">Longitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-180" max="180" name="monoliths_c0__Longitude" data-field="Longitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_plot_id">Plot</label><div><textarea name="monoliths_c0__bicrn_plot_id" data-field="bicrn_plot_id"></textarea></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_conditioning_volume">Conditioning water applied</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_c0__bicrn_conditioning_volume" data-field="bicrn_conditioning_volume" data-transform=""><span class="unit">L</span></span></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_conditioning_days">Conditioning days</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_c0__bicrn_conditioning_days" data-field="bicrn_conditioning_days" data-transform=""></span></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_press_stop_reached">Pressed to stop line?</label><div><div class="ticks"><label><input type="radio" name="monoliths_c0__bicrn_press_stop_reached" value="TRUE" data-field="bicrn_press_stop_reached"> TRUE</label><label><input type="radio" name="monoliths_c0__bicrn_press_stop_reached" value="FALSE" data-field="bicrn_press_stop_reached"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_compaction_offset">Compaction offset</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_c0__bicrn_compaction_offset" data-field="bicrn_compaction_offset" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_base_severed_cleanly">Base severed cleanly?</label><div><div class="ticks"><label><input type="radio" name="monoliths_c0__bicrn_base_severed_cleanly" value="TRUE" data-field="bicrn_base_severed_cleanly"> TRUE</label><label><input type="radio" name="monoliths_c0__bicrn_base_severed_cleanly" value="FALSE" data-field="bicrn_base_severed_cleanly"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_basal_loss_estimate">Basal loss estimate</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_c0__bicrn_basal_loss_estimate" data-field="bicrn_basal_loss_estimate" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_extraction_rim_condition">Rim condition</label><div><div class="ticks"><label><input type="radio" name="monoliths_c0__bicrn_extraction_rim_condition" value="intact" data-field="bicrn_extraction_rim_condition"> Intact</label><label><input type="radio" name="monoliths_c0__bicrn_extraction_rim_condition" value="deformed" data-field="bicrn_extraction_rim_condition"> Deformed</label><label><input type="radio" name="monoliths_c0__bicrn_extraction_rim_condition" value="cracked" data-field="bicrn_extraction_rim_condition"> Cracked</label></div></div></div><div class="fieldrow"><label for="monoliths_c0__bicrn_monolith_disposition">Disposition</label><div><div class="ticks"><label><input type="radio" name="monoliths_c0__bicrn_monolith_disposition" value="emplaced_same_day" data-field="bicrn_monolith_disposition"> Emplaced same day</label><label><input type="radio" name="monoliths_c0__bicrn_monolith_disposition" value="stored_for_emplacement" data-field="bicrn_monolith_disposition"> Stored for later emplacement</label></div></div></div></article><template id="tmpl-monoliths"><article class="card" data-row="__N__" data-section="monoliths" data-key="{}" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="fieldrow"><label for="monoliths_c__N____bicrn_device_id">Monolith ID<span class="req" title="required">*</span></label><div><textarea name="monoliths_c__N____bicrn_device_id" data-field="bicrn_device_id" required></textarea></div></div><div class="fieldrow"><label for="monoliths_c__N____Latitude">Latitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-90" max="90" name="monoliths_c__N____Latitude" data-field="Latitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_c__N____Longitude">Longitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-180" max="180" name="monoliths_c__N____Longitude" data-field="Longitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_plot_id">Plot</label><div><textarea name="monoliths_c__N____bicrn_plot_id" data-field="bicrn_plot_id"></textarea></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_conditioning_volume">Conditioning water applied</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_c__N____bicrn_conditioning_volume" data-field="bicrn_conditioning_volume" data-transform=""><span class="unit">L</span></span></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_conditioning_days">Conditioning days</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_c__N____bicrn_conditioning_days" data-field="bicrn_conditioning_days" data-transform=""></span></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_press_stop_reached">Pressed to stop line?</label><div><div class="ticks"><label><input type="radio" name="monoliths_c__N____bicrn_press_stop_reached" value="TRUE" data-field="bicrn_press_stop_reached"> TRUE</label><label><input type="radio" name="monoliths_c__N____bicrn_press_stop_reached" value="FALSE" data-field="bicrn_press_stop_reached"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_compaction_offset">Compaction offset</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_c__N____bicrn_compaction_offset" data-field="bicrn_compaction_offset" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_base_severed_cleanly">Base severed cleanly?</label><div><div class="ticks"><label><input type="radio" name="monoliths_c__N____bicrn_base_severed_cleanly" value="TRUE" data-field="bicrn_base_severed_cleanly"> TRUE</label><label><input type="radio" name="monoliths_c__N____bicrn_base_severed_cleanly" value="FALSE" data-field="bicrn_base_severed_cleanly"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_basal_loss_estimate">Basal loss estimate</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_c__N____bicrn_basal_loss_estimate" data-field="bicrn_basal_loss_estimate" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_extraction_rim_condition">Rim condition</label><div><div class="ticks"><label><input type="radio" name="monoliths_c__N____bicrn_extraction_rim_condition" value="intact" data-field="bicrn_extraction_rim_condition"> Intact</label><label><input type="radio" name="monoliths_c__N____bicrn_extraction_rim_condition" value="deformed" data-field="bicrn_extraction_rim_condition"> Deformed</label><label><input type="radio" name="monoliths_c__N____bicrn_extraction_rim_condition" value="cracked" data-field="bicrn_extraction_rim_condition"> Cracked</label></div></div></div><div class="fieldrow"><label for="monoliths_c__N____bicrn_monolith_disposition">Disposition</label><div><div class="ticks"><label><input type="radio" name="monoliths_c__N____bicrn_monolith_disposition" value="emplaced_same_day" data-field="bicrn_monolith_disposition"> Emplaced same day</label><label><input type="radio" name="monoliths_c__N____bicrn_monolith_disposition" value="stored_for_emplacement" data-field="bicrn_monolith_disposition"> Stored for later emplacement</label></div></div></div></article></template><button type="button" class="add-card-btn screen-only" data-add-section="monoliths" data-base-index="1" data-next-index="1">+ Add monolith</button><article class="card print-only" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="fieldrow"><label for="monoliths_cP0__bicrn_device_id">Monolith ID<span class="req" title="required">*</span></label><div><textarea name="monoliths_cP0__bicrn_device_id" data-field="bicrn_device_id" required></textarea></div></div><div class="fieldrow"><label for="monoliths_cP0__Latitude">Latitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-90" max="90" name="monoliths_cP0__Latitude" data-field="Latitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_cP0__Longitude">Longitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-180" max="180" name="monoliths_cP0__Longitude" data-field="Longitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_plot_id">Plot</label><div><textarea name="monoliths_cP0__bicrn_plot_id" data-field="bicrn_plot_id"></textarea></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_conditioning_volume">Conditioning water applied</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP0__bicrn_conditioning_volume" data-field="bicrn_conditioning_volume" data-transform=""><span class="unit">L</span></span></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_conditioning_days">Conditioning days</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP0__bicrn_conditioning_days" data-field="bicrn_conditioning_days" data-transform=""></span></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_press_stop_reached">Pressed to stop line?</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP0__bicrn_press_stop_reached" value="TRUE" data-field="bicrn_press_stop_reached"> TRUE</label><label><input type="radio" name="monoliths_cP0__bicrn_press_stop_reached" value="FALSE" data-field="bicrn_press_stop_reached"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_compaction_offset">Compaction offset</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP0__bicrn_compaction_offset" data-field="bicrn_compaction_offset" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_base_severed_cleanly">Base severed cleanly?</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP0__bicrn_base_severed_cleanly" value="TRUE" data-field="bicrn_base_severed_cleanly"> TRUE</label><label><input type="radio" name="monoliths_cP0__bicrn_base_severed_cleanly" value="FALSE" data-field="bicrn_base_severed_cleanly"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_basal_loss_estimate">Basal loss estimate</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP0__bicrn_basal_loss_estimate" data-field="bicrn_basal_loss_estimate" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_extraction_rim_condition">Rim condition</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP0__bicrn_extraction_rim_condition" value="intact" data-field="bicrn_extraction_rim_condition"> Intact</label><label><input type="radio" name="monoliths_cP0__bicrn_extraction_rim_condition" value="deformed" data-field="bicrn_extraction_rim_condition"> Deformed</label><label><input type="radio" name="monoliths_cP0__bicrn_extraction_rim_condition" value="cracked" data-field="bicrn_extraction_rim_condition"> Cracked</label></div></div></div><div class="fieldrow"><label for="monoliths_cP0__bicrn_monolith_disposition">Disposition</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP0__bicrn_monolith_disposition" value="emplaced_same_day" data-field="bicrn_monolith_disposition"> Emplaced same day</label><label><input type="radio" name="monoliths_cP0__bicrn_monolith_disposition" value="stored_for_emplacement" data-field="bicrn_monolith_disposition"> Stored for later emplacement</label></div></div></div></article><article class="card print-only" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="fieldrow"><label for="monoliths_cP1__bicrn_device_id">Monolith ID<span class="req" title="required">*</span></label><div><textarea name="monoliths_cP1__bicrn_device_id" data-field="bicrn_device_id" required></textarea></div></div><div class="fieldrow"><label for="monoliths_cP1__Latitude">Latitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-90" max="90" name="monoliths_cP1__Latitude" data-field="Latitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_cP1__Longitude">Longitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-180" max="180" name="monoliths_cP1__Longitude" data-field="Longitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_plot_id">Plot</label><div><textarea name="monoliths_cP1__bicrn_plot_id" data-field="bicrn_plot_id"></textarea></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_conditioning_volume">Conditioning water applied</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP1__bicrn_conditioning_volume" data-field="bicrn_conditioning_volume" data-transform=""><span class="unit">L</span></span></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_conditioning_days">Conditioning days</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP1__bicrn_conditioning_days" data-field="bicrn_conditioning_days" data-transform=""></span></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_press_stop_reached">Pressed to stop line?</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP1__bicrn_press_stop_reached" value="TRUE" data-field="bicrn_press_stop_reached"> TRUE</label><label><input type="radio" name="monoliths_cP1__bicrn_press_stop_reached" value="FALSE" data-field="bicrn_press_stop_reached"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_compaction_offset">Compaction offset</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP1__bicrn_compaction_offset" data-field="bicrn_compaction_offset" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_base_severed_cleanly">Base severed cleanly?</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP1__bicrn_base_severed_cleanly" value="TRUE" data-field="bicrn_base_severed_cleanly"> TRUE</label><label><input type="radio" name="monoliths_cP1__bicrn_base_severed_cleanly" value="FALSE" data-field="bicrn_base_severed_cleanly"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_basal_loss_estimate">Basal loss estimate</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP1__bicrn_basal_loss_estimate" data-field="bicrn_basal_loss_estimate" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_extraction_rim_condition">Rim condition</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP1__bicrn_extraction_rim_condition" value="intact" data-field="bicrn_extraction_rim_condition"> Intact</label><label><input type="radio" name="monoliths_cP1__bicrn_extraction_rim_condition" value="deformed" data-field="bicrn_extraction_rim_condition"> Deformed</label><label><input type="radio" name="monoliths_cP1__bicrn_extraction_rim_condition" value="cracked" data-field="bicrn_extraction_rim_condition"> Cracked</label></div></div></div><div class="fieldrow"><label for="monoliths_cP1__bicrn_monolith_disposition">Disposition</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP1__bicrn_monolith_disposition" value="emplaced_same_day" data-field="bicrn_monolith_disposition"> Emplaced same day</label><label><input type="radio" name="monoliths_cP1__bicrn_monolith_disposition" value="stored_for_emplacement" data-field="bicrn_monolith_disposition"> Stored for later emplacement</label></div></div></div></article><article class="card print-only" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="fieldrow"><label for="monoliths_cP2__bicrn_device_id">Monolith ID<span class="req" title="required">*</span></label><div><textarea name="monoliths_cP2__bicrn_device_id" data-field="bicrn_device_id" required></textarea></div></div><div class="fieldrow"><label for="monoliths_cP2__Latitude">Latitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-90" max="90" name="monoliths_cP2__Latitude" data-field="Latitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_cP2__Longitude">Longitude<span class="req" title="required">*</span></label><div><span class="numwrap"><input type="number" step="any" min="-180" max="180" name="monoliths_cP2__Longitude" data-field="Longitude" data-transform="" required></span></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_plot_id">Plot</label><div><textarea name="monoliths_cP2__bicrn_plot_id" data-field="bicrn_plot_id"></textarea></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_conditioning_volume">Conditioning water applied</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP2__bicrn_conditioning_volume" data-field="bicrn_conditioning_volume" data-transform=""><span class="unit">L</span></span></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_conditioning_days">Conditioning days</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP2__bicrn_conditioning_days" data-field="bicrn_conditioning_days" data-transform=""></span></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_press_stop_reached">Pressed to stop line?</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP2__bicrn_press_stop_reached" value="TRUE" data-field="bicrn_press_stop_reached"> TRUE</label><label><input type="radio" name="monoliths_cP2__bicrn_press_stop_reached" value="FALSE" data-field="bicrn_press_stop_reached"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_compaction_offset">Compaction offset</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP2__bicrn_compaction_offset" data-field="bicrn_compaction_offset" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_base_severed_cleanly">Base severed cleanly?</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP2__bicrn_base_severed_cleanly" value="TRUE" data-field="bicrn_base_severed_cleanly"> TRUE</label><label><input type="radio" name="monoliths_cP2__bicrn_base_severed_cleanly" value="FALSE" data-field="bicrn_base_severed_cleanly"> FALSE</label></div></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_basal_loss_estimate">Basal loss estimate</label><div><span class="numwrap"><input type="number" step="any" name="monoliths_cP2__bicrn_basal_loss_estimate" data-field="bicrn_basal_loss_estimate" data-transform=""><span class="unit">cm</span></span></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_extraction_rim_condition">Rim condition</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP2__bicrn_extraction_rim_condition" value="intact" data-field="bicrn_extraction_rim_condition"> Intact</label><label><input type="radio" name="monoliths_cP2__bicrn_extraction_rim_condition" value="deformed" data-field="bicrn_extraction_rim_condition"> Deformed</label><label><input type="radio" name="monoliths_cP2__bicrn_extraction_rim_condition" value="cracked" data-field="bicrn_extraction_rim_condition"> Cracked</label></div></div></div><div class="fieldrow"><label for="monoliths_cP2__bicrn_monolith_disposition">Disposition</label><div><div class="ticks"><label><input type="radio" name="monoliths_cP2__bicrn_monolith_disposition" value="emplaced_same_day" data-field="bicrn_monolith_disposition"> Emplaced same day</label><label><input type="radio" name="monoliths_cP2__bicrn_monolith_disposition" value="stored_for_emplacement" data-field="bicrn_monolith_disposition"> Stored for later emplacement</label></div></div></div></article></section><section id="photos"><h2>Photographs</h2><p class="hint">Add one card per photograph. Photograph each excavated hole and labeled monolith per the SOP completion checklist.</p><label class="no-photos-toggle screen-only"><input type="checkbox" name="no_photos_photos" data-no-photos="photos"> No photos were recorded</label><template id="tmpl-photos"><article class="card" data-row="__N__" data-section="photos" data-key="{}" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="drop-zone screen-only">Drop a photo here</div><div class="fieldrow"><label for="photos_c__N____bicrn_photo_id">Photo ID<span class="req" title="required">*</span></label><div><textarea name="photos_c__N____bicrn_photo_id" data-field="bicrn_photo_id" required></textarea></div></div><div class="fieldrow"><label for="photos_c__N____bicrn_photo_subject_type">What it shows<span class="req" title="required">*</span></label><div><div class="ticks"><label><input type="radio" name="photos_c__N____bicrn_photo_subject_type" value="dye_pit_face" data-field="bicrn_photo_subject_type"> Dye-stained pit face</label><label><input type="radio" name="photos_c__N____bicrn_photo_subject_type" value="tracer_subplot" data-field="bicrn_photo_subject_type"> Tracer subplot</label><label><input type="radio" name="photos_c__N____bicrn_photo_subject_type" value="psd_reference" data-field="bicrn_photo_subject_type"> Particle or aggregate reference image</label><label><input type="radio" name="photos_c__N____bicrn_photo_subject_type" value="site_visit" data-field="bicrn_photo_subject_type"> Site visit record</label><label><input type="radio" name="photos_c__N____bicrn_photo_subject_type" value="plot_overview" data-field="bicrn_photo_subject_type"> Plot overview</label><label><input type="radio" name="photos_c__N____bicrn_photo_subject_type" value="instrument_installation" data-field="bicrn_photo_subject_type"> Instrument installation</label><label><input type="radio" name="photos_c__N____bicrn_photo_subject_type" value="feedstock_application" data-field="bicrn_photo_subject_type"> Feedstock application</label></div></div></div><div class="fieldrow"><label for="photos_c__N____bicrn_photo_subject_id">Sample ID pictured<span class="req" title="required">*</span></label><div><textarea name="photos_c__N____bicrn_photo_subject_id" data-field="bicrn_photo_subject_id" required></textarea></div></div><div class="fieldrow"><label for="photos_c__N____bicrn_photographer_person_id">Taken by</label><div><textarea name="photos_c__N____bicrn_photographer_person_id" data-field="bicrn_photographer_person_id"></textarea></div></div><div class="fieldrow"><label for="photos_c__N____bicrn_camera_orientation">Orientation</label><div><div class="ticks"><label><input type="radio" name="photos_c__N____bicrn_camera_orientation" value="nadir" data-field="bicrn_camera_orientation"> Nadir (straight down)</label><label><input type="radio" name="photos_c__N____bicrn_camera_orientation" value="pit_face_normal" data-field="bicrn_camera_orientation"> Normal to the pit face</label><label><input type="radio" name="photos_c__N____bicrn_camera_orientation" value="oblique" data-field="bicrn_camera_orientation"> Oblique</label><label><input type="radio" name="photos_c__N____bicrn_camera_orientation" value="horizontal" data-field="bicrn_camera_orientation"> Horizontal</label></div></div></div><div class="fieldrow"><label for="photos_c__N____bicrn_camera_mount">Mount</label><div><div class="ticks"><label><input type="radio" name="photos_c__N____bicrn_camera_mount" value="tripod" data-field="bicrn_camera_mount"> Tripod</label><label><input type="radio" name="photos_c__N____bicrn_camera_mount" value="handheld" data-field="bicrn_camera_mount"> Handheld</label><label><input type="radio" name="photos_c__N____bicrn_camera_mount" value="pole" data-field="bicrn_camera_mount"> Pole</label></div></div></div><div class="fieldrow"><label for="photos_c__N____bicrn_camera_height">Camera height</label><div><span class="numwrap"><input type="number" step="any" name="photos_c__N____bicrn_camera_height" data-field="bicrn_camera_height" data-transform=""><span class="unit">m</span></span></div></div><div class="fieldrow"><label for="photos_c__N____bicrn_photo_scale_reference">Scale in frame</label><div><textarea name="photos_c__N____bicrn_photo_scale_reference" data-field="bicrn_photo_scale_reference"></textarea></div></div><div class="fieldrow"><label for="photos_c__N____bicrn_photo_notes">Notes</label><div><textarea name="photos_c__N____bicrn_photo_notes" data-field="bicrn_photo_notes"></textarea></div></div><input type="hidden" name="photos_c__N____bicrn_photo_datetime" data-field="bicrn_photo_datetime"><input type="hidden" name="photos_c__N____bicrn_photo_file_ref" data-field="bicrn_photo_file_ref"></article></template><button type="button" class="add-card-btn screen-only" data-add-section="photos" data-base-index="0" data-next-index="0">+ Add photo</button><article class="card print-only" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="fieldrow"><label for="photos_cP0__bicrn_photo_id">Photo ID<span class="req" title="required">*</span></label><div><textarea name="photos_cP0__bicrn_photo_id" data-field="bicrn_photo_id" required></textarea></div></div><div class="fieldrow"><label for="photos_cP0__bicrn_photo_subject_type">What it shows<span class="req" title="required">*</span></label><div><div class="ticks"><label><input type="radio" name="photos_cP0__bicrn_photo_subject_type" value="dye_pit_face" data-field="bicrn_photo_subject_type"> Dye-stained pit face</label><label><input type="radio" name="photos_cP0__bicrn_photo_subject_type" value="tracer_subplot" data-field="bicrn_photo_subject_type"> Tracer subplot</label><label><input type="radio" name="photos_cP0__bicrn_photo_subject_type" value="psd_reference" data-field="bicrn_photo_subject_type"> Particle or aggregate reference image</label><label><input type="radio" name="photos_cP0__bicrn_photo_subject_type" value="site_visit" data-field="bicrn_photo_subject_type"> Site visit record</label><label><input type="radio" name="photos_cP0__bicrn_photo_subject_type" value="plot_overview" data-field="bicrn_photo_subject_type"> Plot overview</label><label><input type="radio" name="photos_cP0__bicrn_photo_subject_type" value="instrument_installation" data-field="bicrn_photo_subject_type"> Instrument installation</label><label><input type="radio" name="photos_cP0__bicrn_photo_subject_type" value="feedstock_application" data-field="bicrn_photo_subject_type"> Feedstock application</label></div></div></div><div class="fieldrow"><label for="photos_cP0__bicrn_photo_subject_id">Sample ID pictured<span class="req" title="required">*</span></label><div><textarea name="photos_cP0__bicrn_photo_subject_id" data-field="bicrn_photo_subject_id" required></textarea></div></div><div class="fieldrow"><label for="photos_cP0__bicrn_photographer_person_id">Taken by</label><div><textarea name="photos_cP0__bicrn_photographer_person_id" data-field="bicrn_photographer_person_id"></textarea></div></div><div class="fieldrow"><label for="photos_cP0__bicrn_camera_orientation">Orientation</label><div><div class="ticks"><label><input type="radio" name="photos_cP0__bicrn_camera_orientation" value="nadir" data-field="bicrn_camera_orientation"> Nadir (straight down)</label><label><input type="radio" name="photos_cP0__bicrn_camera_orientation" value="pit_face_normal" data-field="bicrn_camera_orientation"> Normal to the pit face</label><label><input type="radio" name="photos_cP0__bicrn_camera_orientation" value="oblique" data-field="bicrn_camera_orientation"> Oblique</label><label><input type="radio" name="photos_cP0__bicrn_camera_orientation" value="horizontal" data-field="bicrn_camera_orientation"> Horizontal</label></div></div></div><div class="fieldrow"><label for="photos_cP0__bicrn_camera_mount">Mount</label><div><div class="ticks"><label><input type="radio" name="photos_cP0__bicrn_camera_mount" value="tripod" data-field="bicrn_camera_mount"> Tripod</label><label><input type="radio" name="photos_cP0__bicrn_camera_mount" value="handheld" data-field="bicrn_camera_mount"> Handheld</label><label><input type="radio" name="photos_cP0__bicrn_camera_mount" value="pole" data-field="bicrn_camera_mount"> Pole</label></div></div></div><div class="fieldrow"><label for="photos_cP0__bicrn_camera_height">Camera height</label><div><span class="numwrap"><input type="number" step="any" name="photos_cP0__bicrn_camera_height" data-field="bicrn_camera_height" data-transform=""><span class="unit">m</span></span></div></div><div class="fieldrow"><label for="photos_cP0__bicrn_photo_scale_reference">Scale in frame</label><div><textarea name="photos_cP0__bicrn_photo_scale_reference" data-field="bicrn_photo_scale_reference"></textarea></div></div><div class="fieldrow"><label for="photos_cP0__bicrn_photo_notes">Notes</label><div><textarea name="photos_cP0__bicrn_photo_notes" data-field="bicrn_photo_notes"></textarea></div></div><input type="hidden" name="photos_cP0__bicrn_photo_datetime" data-field="bicrn_photo_datetime"><input type="hidden" name="photos_cP0__bicrn_photo_file_ref" data-field="bicrn_photo_file_ref"></article><article class="card print-only" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="fieldrow"><label for="photos_cP1__bicrn_photo_id">Photo ID<span class="req" title="required">*</span></label><div><textarea name="photos_cP1__bicrn_photo_id" data-field="bicrn_photo_id" required></textarea></div></div><div class="fieldrow"><label for="photos_cP1__bicrn_photo_subject_type">What it shows<span class="req" title="required">*</span></label><div><div class="ticks"><label><input type="radio" name="photos_cP1__bicrn_photo_subject_type" value="dye_pit_face" data-field="bicrn_photo_subject_type"> Dye-stained pit face</label><label><input type="radio" name="photos_cP1__bicrn_photo_subject_type" value="tracer_subplot" data-field="bicrn_photo_subject_type"> Tracer subplot</label><label><input type="radio" name="photos_cP1__bicrn_photo_subject_type" value="psd_reference" data-field="bicrn_photo_subject_type"> Particle or aggregate reference image</label><label><input type="radio" name="photos_cP1__bicrn_photo_subject_type" value="site_visit" data-field="bicrn_photo_subject_type"> Site visit record</label><label><input type="radio" name="photos_cP1__bicrn_photo_subject_type" value="plot_overview" data-field="bicrn_photo_subject_type"> Plot overview</label><label><input type="radio" name="photos_cP1__bicrn_photo_subject_type" value="instrument_installation" data-field="bicrn_photo_subject_type"> Instrument installation</label><label><input type="radio" name="photos_cP1__bicrn_photo_subject_type" value="feedstock_application" data-field="bicrn_photo_subject_type"> Feedstock application</label></div></div></div><div class="fieldrow"><label for="photos_cP1__bicrn_photo_subject_id">Sample ID pictured<span class="req" title="required">*</span></label><div><textarea name="photos_cP1__bicrn_photo_subject_id" data-field="bicrn_photo_subject_id" required></textarea></div></div><div class="fieldrow"><label for="photos_cP1__bicrn_photographer_person_id">Taken by</label><div><textarea name="photos_cP1__bicrn_photographer_person_id" data-field="bicrn_photographer_person_id"></textarea></div></div><div class="fieldrow"><label for="photos_cP1__bicrn_camera_orientation">Orientation</label><div><div class="ticks"><label><input type="radio" name="photos_cP1__bicrn_camera_orientation" value="nadir" data-field="bicrn_camera_orientation"> Nadir (straight down)</label><label><input type="radio" name="photos_cP1__bicrn_camera_orientation" value="pit_face_normal" data-field="bicrn_camera_orientation"> Normal to the pit face</label><label><input type="radio" name="photos_cP1__bicrn_camera_orientation" value="oblique" data-field="bicrn_camera_orientation"> Oblique</label><label><input type="radio" name="photos_cP1__bicrn_camera_orientation" value="horizontal" data-field="bicrn_camera_orientation"> Horizontal</label></div></div></div><div class="fieldrow"><label for="photos_cP1__bicrn_camera_mount">Mount</label><div><div class="ticks"><label><input type="radio" name="photos_cP1__bicrn_camera_mount" value="tripod" data-field="bicrn_camera_mount"> Tripod</label><label><input type="radio" name="photos_cP1__bicrn_camera_mount" value="handheld" data-field="bicrn_camera_mount"> Handheld</label><label><input type="radio" name="photos_cP1__bicrn_camera_mount" value="pole" data-field="bicrn_camera_mount"> Pole</label></div></div></div><div class="fieldrow"><label for="photos_cP1__bicrn_camera_height">Camera height</label><div><span class="numwrap"><input type="number" step="any" name="photos_cP1__bicrn_camera_height" data-field="bicrn_camera_height" data-transform=""><span class="unit">m</span></span></div></div><div class="fieldrow"><label for="photos_cP1__bicrn_photo_scale_reference">Scale in frame</label><div><textarea name="photos_cP1__bicrn_photo_scale_reference" data-field="bicrn_photo_scale_reference"></textarea></div></div><div class="fieldrow"><label for="photos_cP1__bicrn_photo_notes">Notes</label><div><textarea name="photos_cP1__bicrn_photo_notes" data-field="bicrn_photo_notes"></textarea></div></div><input type="hidden" name="photos_cP1__bicrn_photo_datetime" data-field="bicrn_photo_datetime"><input type="hidden" name="photos_cP1__bicrn_photo_file_ref" data-field="bicrn_photo_file_ref"></article><article class="card print-only" data-skip-if-empty><button type="button" class="remove-card-btn screen-only" title="Remove this card">&times;</button><div class="fieldrow"><label for="photos_cP2__bicrn_photo_id">Photo ID<span class="req" title="required">*</span></label><div><textarea name="photos_cP2__bicrn_photo_id" data-field="bicrn_photo_id" required></textarea></div></div><div class="fieldrow"><label for="photos_cP2__bicrn_photo_subject_type">What it shows<span class="req" title="required">*</span></label><div><div class="ticks"><label><input type="radio" name="photos_cP2__bicrn_photo_subject_type" value="dye_pit_face" data-field="bicrn_photo_subject_type"> Dye-stained pit face</label><label><input type="radio" name="photos_cP2__bicrn_photo_subject_type" value="tracer_subplot" data-field="bicrn_photo_subject_type"> Tracer subplot</label><label><input type="radio" name="photos_cP2__bicrn_photo_subject_type" value="psd_reference" data-field="bicrn_photo_subject_type"> Particle or aggregate reference image</label><label><input type="radio" name="photos_cP2__bicrn_photo_subject_type" value="site_visit" data-field="bicrn_photo_subject_type"> Site visit record</label><label><input type="radio" name="photos_cP2__bicrn_photo_subject_type" value="plot_overview" data-field="bicrn_photo_subject_type"> Plot overview</label><label><input type="radio" name="photos_cP2__bicrn_photo_subject_type" value="instrument_installation" data-field="bicrn_photo_subject_type"> Instrument installation</label><label><input type="radio" name="photos_cP2__bicrn_photo_subject_type" value="feedstock_application" data-field="bicrn_photo_subject_type"> Feedstock application</label></div></div></div><div class="fieldrow"><label for="photos_cP2__bicrn_photo_subject_id">Sample ID pictured<span class="req" title="required">*</span></label><div><textarea name="photos_cP2__bicrn_photo_subject_id" data-field="bicrn_photo_subject_id" required></textarea></div></div><div class="fieldrow"><label for="photos_cP2__bicrn_photographer_person_id">Taken by</label><div><textarea name="photos_cP2__bicrn_photographer_person_id" data-field="bicrn_photographer_person_id"></textarea></div></div><div class="fieldrow"><label for="photos_cP2__bicrn_camera_orientation">Orientation</label><div><div class="ticks"><label><input type="radio" name="photos_cP2__bicrn_camera_orientation" value="nadir" data-field="bicrn_camera_orientation"> Nadir (straight down)</label><label><input type="radio" name="photos_cP2__bicrn_camera_orientation" value="pit_face_normal" data-field="bicrn_camera_orientation"> Normal to the pit face</label><label><input type="radio" name="photos_cP2__bicrn_camera_orientation" value="oblique" data-field="bicrn_camera_orientation"> Oblique</label><label><input type="radio" name="photos_cP2__bicrn_camera_orientation" value="horizontal" data-field="bicrn_camera_orientation"> Horizontal</label></div></div></div><div class="fieldrow"><label for="photos_cP2__bicrn_camera_mount">Mount</label><div><div class="ticks"><label><input type="radio" name="photos_cP2__bicrn_camera_mount" value="tripod" data-field="bicrn_camera_mount"> Tripod</label><label><input type="radio" name="photos_cP2__bicrn_camera_mount" value="handheld" data-field="bicrn_camera_mount"> Handheld</label><label><input type="radio" name="photos_cP2__bicrn_camera_mount" value="pole" data-field="bicrn_camera_mount"> Pole</label></div></div></div><div class="fieldrow"><label for="photos_cP2__bicrn_camera_height">Camera height</label><div><span class="numwrap"><input type="number" step="any" name="photos_cP2__bicrn_camera_height" data-field="bicrn_camera_height" data-transform=""><span class="unit">m</span></span></div></div><div class="fieldrow"><label for="photos_cP2__bicrn_photo_scale_reference">Scale in frame</label><div><textarea name="photos_cP2__bicrn_photo_scale_reference" data-field="bicrn_photo_scale_reference"></textarea></div></div><div class="fieldrow"><label for="photos_cP2__bicrn_photo_notes">Notes</label><div><textarea name="photos_cP2__bicrn_photo_notes" data-field="bicrn_photo_notes"></textarea></div></div><input type="hidden" name="photos_cP2__bicrn_photo_datetime" data-field="bicrn_photo_datetime"><input type="hidden" name="photos_cP2__bicrn_photo_file_ref" data-field="bicrn_photo_file_ref"></article></section><section id="deviations"><h2>Deviations from the SOP</h2><div class="fieldrow"><label>Anything deviate from SOP?</label><div><span class="ticks"><label><input type="checkbox" name="f__bicrn_site_visit__bicrn_deviation_flag" data-field="bicrn_deviation_flag" data-shows="deviations__body" value="TRUE"> yes</label></span></div></div><div id="deviations__body" hidden><p class="hint">A monolith rejected for compaction, a tube that cracked, a location where an obstruction forced a restart. Record each rejected attempt and why.</p><textarea name="deviations" rows="3" data-field="bicrn_deviation_description"></textarea></div></section><section id="departure"><h2>On leaving</h2><div class="fieldrow"><label for="f__bicrn_site_visit__bicrn_visit_departure_time">Left site</label><div><input type="time" name="f__bicrn_site_visit__bicrn_visit_departure_time" data-field="bicrn_visit_departure_time"></div></div></section><section id="signoff"><h2>Sign-off</h2><div class="signoff" style="grid-template-columns:1fr 1fr"><div class="sig"><h3>Extracting technician</h3><div class="fieldrow"><label>Person ID</label><div><input type="text" name="f__bicrn_site_visit__bicrn_signoff_1_person_id" data-field="bicrn_signoff_1_person_id" required></div></div><div class="fieldrow"><label>Role</label><div><select name="f__bicrn_site_visit__bicrn_signoff_1_role" data-field="bicrn_signoff_1_role" required><option value=""></option><option value="site_manager">site_manager</option><option value="collecting_technician">collecting_technician</option><option value="site_pi">site_pi</option></select></div></div><div class="fieldrow"><label>Date</label><div><input type="datetime-local" name="f__bicrn_site_visit__bicrn_signoff_1_datetime" data-field="bicrn_signoff_1_datetime" required></div></div><div class="sigline"></div><span class="sigline-cap">Signature</span></div><div class="sig"><h3>Site manager</h3><div class="fieldrow"><label>Person ID</label><div><input type="text" name="f__bicrn_site_visit__bicrn_signoff_2_person_id" data-field="bicrn_signoff_2_person_id" required></div></div><div class="fieldrow"><label>Role</label><div><select name="f__bicrn_site_visit__bicrn_signoff_2_role" data-field="bicrn_signoff_2_role" required><option value=""></option><option value="site_manager">site_manager</option><option value="collecting_technician">collecting_technician</option><option value="site_pi">site_pi</option></select></div></div><div class="fieldrow"><label>Date</label><div><input type="datetime-local" name="f__bicrn_site_visit__bicrn_signoff_2_datetime" data-field="bicrn_signoff_2_datetime" required></div></div><div class="sigline"></div><span class="sigline-cap">Signature</span></div></div><p class="gate">Two different people must sign. The same ID in both boxes will be rejected.</p></section><div class="actions screen-only"><button id="export" type="button">Export CSV</button><button id="print" type="button" class="ghost">Print / save as PDF</button><span id="status"></span><span id="autosave"></span></div><footer>Retain this sheet. Scan the signed original and upload it alongside the transcribed CSVs. Compute the compaction fraction on the spot — offset ÷ (tube length minus 7 cm) — and reject any monolith above 10% before backfilling. The tube length is preprinted.<br>Generated by <code>sheets/build.py</code> from <code>sheets/inventory/porewater.json</code> against standard <b>0.3.0-dev</b>. Absent values transcribe as <code>N/A</code> - never a blank cell.</footer></main>
+<script>window.__SHEET__ = {"row_tables": [{"section": "monoliths", "table": "bicrn_lysimeter", "columns": ["bicrn_capture_area", "bicrn_depth_selection_basis", "bicrn_depth_zone", "bicrn_device_id", "bicrn_divergence_tube_diameter", "bicrn_divergence_tube_length", "bicrn_equilibration_period", "bicrn_extraction_tube_material", "bicrn_geotextile_mesh", "bicrn_reservoir_volume", "bicrn_wick_material", "bicrn_wick_tension", "bicrn_wick_tension_basis", "Latitude", "Longitude", "bicrn_plot_id", "bicrn_conditioning_volume", "bicrn_conditioning_days", "bicrn_press_stop_reached", "bicrn_compaction_offset", "bicrn_base_severed_cleanly", "bicrn_basal_loss_estimate", "bicrn_extraction_rim_condition", "bicrn_monolith_disposition"]}, {"section": "photos", "table": "bicrn_photo", "columns": ["bicrn_photo_id", "bicrn_photo_datetime", "bicrn_photo_file_ref", "bicrn_photo_subject_type", "bicrn_photo_subject_id", "bicrn_photographer_person_id", "bicrn_camera_orientation", "bicrn_camera_mount", "bicrn_camera_height", "bicrn_photo_scale_reference", "bicrn_photo_notes"]}], "singletons": [{"table": "bicrn_site_visit", "selectors": ["#conditions", "#deviations", "#departure", "#signoff"]}, {"table": "bicrn_visit_activity", "selectors": ["#activities"]}], "absent": "N/A", "bundle": "V10-2027-08-14", "standard_version": "0.3.0-dev", "sheet_version": "1.0.0"};</script>
+<script>(function () {
+  var SPEC = window.__SHEET__;
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  // Live cm -> m readout. The technician reads a tape in centimetres; the file stores
+  // metres. Showing both, continuously, is what stops the two being confused - see G10.
+  function convert(kind, raw) {
+    var v = parseFloat(raw);
+    if (isNaN(v)) return null;
+    if (kind === 'cm_to_m') return v / 100;
+    return v;
+  }
+  // ONE wiring pass for a card's interactive behaviors - the cm/m transform echo, the
+  // '< MDL' disable (a tick means the value box is not a number - grey it out so nobody
+  // writes both, the state the paired _flag column cannot represent), and the photo drop
+  // zone. Called once with document at startup and once per cloned card inside addCard,
+  // so static and added cards cannot drift: the wiring used to exist in TWO copies (the
+  // clone copy had already lost the initial sync() call) plus a third layer that
+  // monkey-patched addCard to bolt on drop zones - a patch that only worked because every
+  // call site late-bound the name. setupDropZone is a hoisted function declaration below.
+  function wireCard(scope) {
+    $$('input[data-transform]', scope).forEach(function (el) {
+      if (!el.dataset.transform) return;
+      var out = $('[data-conv-for="' + el.name + '"]', scope);
+      var sync = function () {
+        var v = convert(el.dataset.transform, el.value);
+        if (out) out.textContent = (v === null) ? '' : '= ' + v + ' m';
+      };
+      el.addEventListener('input', sync); sync();
+    });
+    $$('input[data-mdl-for]', scope).forEach(function (box) {
+      box.addEventListener('change', function () {
+        var target = document.getElementsByName(box.dataset.mdlFor)[0];
+        if (!target) return;
+        target.disabled = box.checked;
+        if (box.checked) target.value = '';
+      });
+    });
+    $$('.drop-zone', scope).forEach(setupDropZone);
+  }
+  wireCard(document);
+
+  // Addable sections: stamp a card from the <template>, rewrite __N__ placeholders.
+  function addCard(sectionId) {
+    var tmpl = $('#tmpl-' + sectionId);
+    var btn = $('[data-add-section="' + sectionId + '"]');
+    if (!tmpl || !btn) return null;
+    var idx = parseInt(btn.dataset.nextIndex, 10);
+    var clone = document.importNode(tmpl.content, true);
+    var card = clone.firstElementChild;
+    card.dataset.row = idx;
+    var html = card.innerHTML;
+    html = html.replace(/__N__/g, idx);
+    card.innerHTML = html;
+    wireCard(card);
+    btn.parentNode.insertBefore(card, btn);
+    btn.dataset.nextIndex = idx + 1;
+    syncDeviceTypeSections();
+    return card;
+  }
+  $$('[data-add-section]').forEach(function (btn) {
+    btn.addEventListener('click', function () { addCard(btn.dataset.addSection); });
+  });
+
+  function removeCard(card) {
+    var key = card.dataset.section + '_' + card.dataset.row;
+    var entry = photoStore[key];
+    if (entry && entry.url) URL.revokeObjectURL(entry.url);
+    delete photoStore[key];
+    card.remove();
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.remove-card-btn');
+    if (!btn) return;
+    var card = btn.closest('.card');
+    if (card) { removeCard(card); syncDeviceTypeSections(); }
+  });
+
+  $$('[data-no-photos]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      var sid = cb.dataset.noPhotos;
+      var sec = $('#' + sid);
+      if (!sec) return;
+      sec.classList.toggle('no-photos-active', cb.checked);
+    });
+  });
+
+  // depends_on: a checkbox with data-shows="X" toggles the visibility of element #X.
+  $$('[data-shows]').forEach(function (cb) {
+    var target = $('#' + cb.dataset.shows);
+    if (!target) return;
+    var sync = function () {
+      target.hidden = !cb.checked;
+      if (!cb.checked) {
+        $$('textarea, input:not([type=hidden])', target).forEach(function (el) {
+          el.value = '';
+        });
+      }
+    };
+    cb.addEventListener('change', sync);
+    sync();
+  });
+
+  // show_when_device_type: sections whose visibility depends on which device types have
+  // been declared.  Any radio/select bound to bicrn_device_type triggers a resync; each
+  // section with data-show-when-device-type is shown when at least one declared type
+  // matches, hidden otherwise.
+  function syncDeviceTypeSections() {
+    var types = {};
+    $$('[data-field="bicrn_device_type"]').forEach(function (el) {
+      if (el.type === 'radio' && !el.checked) return;
+      if (el.type === 'radio' && el.checked) { types[el.value] = true; return; }
+      if (el.tagName === 'SELECT' && el.value) { types[el.value] = true; }
+    });
+    $$('[data-show-when-device-type]').forEach(function (sec) {
+      var need = sec.dataset.showWhenDeviceType.split(',');
+      sec.hidden = !need.some(function (t) { return types[t.trim()]; });
+    });
+  }
+  document.addEventListener('change', function (e) {
+    var el = e.target;
+    if (el.dataset && el.dataset.field === 'bicrn_device_type') syncDeviceTypeSections();
+  });
+  syncDeviceTypeSections();
+
+  // photo_attach: toggle button shows/hides the inline photo area on an activity card.
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-photo-toggle]');
+    if (!btn) return;
+    var area = $('#pa_' + btn.dataset.photoToggle);
+    if (!area) return;
+    area.hidden = !area.hidden;
+  });
+
+  // --- photo attachment: EXIF + drop + in-memory store --------------------------------
+  var photoStore = {};
+
+  function isRowFilled(row) {
+    var filled = $$('[data-field]', row).some(function (el) {
+      if (el.type === 'hidden') return false;
+      if (el.type === 'checkbox') return el.checked;
+      if (el.type === 'radio') return el.checked;
+      return String(el.value || '').trim() !== '';
+    });
+    if (!filled) {
+      var pKey = row.dataset.section + '_' + row.dataset.row;
+      filled = !!photoStore[pKey];
+    }
+    return filled;
+  }
+
+  function exifDatetime(file) {
+    return new Promise(function (resolve) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          var buf = new Uint8Array(reader.result);
+          if (buf[0] !== 0xFF || buf[1] !== 0xD8) { resolve(null); return; }
+          var pos = 2;
+          while (pos < buf.length - 4) {
+            if (buf[pos] !== 0xFF) { resolve(null); return; }
+            var marker = buf[pos + 1];
+            if (marker === 0xE1) break;
+            if (marker === 0xDA) { resolve(null); return; }
+            var segLen = (buf[pos + 2] << 8) | buf[pos + 3];
+            pos += 2 + segLen;
+          }
+          if (pos >= buf.length - 4) { resolve(null); return; }
+          var app1Start = pos + 4;
+          var exifHdr = String.fromCharCode.apply(null, buf.slice(app1Start, app1Start + 6));
+          if (exifHdr !== 'Exif\0\0') { resolve(null); return; }
+          var tiffStart = app1Start + 6;
+          var le = (buf[tiffStart] === 0x49);
+          var r16 = function (o) {
+            return le ? (buf[tiffStart + o] | (buf[tiffStart + o + 1] << 8))
+                      : ((buf[tiffStart + o] << 8) | buf[tiffStart + o + 1]);
+          };
+          var r32 = function (o) {
+            return le ? (buf[tiffStart + o] | (buf[tiffStart + o + 1] << 8) |
+                        (buf[tiffStart + o + 2] << 16) | (buf[tiffStart + o + 3] << 24)) >>> 0
+                      : ((buf[tiffStart + o] << 24) | (buf[tiffStart + o + 1] << 16) |
+                        (buf[tiffStart + o + 2] << 8) | buf[tiffStart + o + 3]) >>> 0;
+          };
+          var ifdOff = r32(4);
+          var findTag = function (off, tag) {
+            var count = r16(off);
+            for (var t = 0; t < count; t++) {
+              var entry = off + 2 + t * 12;
+              if (r16(entry) === tag) return entry;
+            }
+            return -1;
+          };
+          var exifPtr = findTag(ifdOff, 0x8769);
+          if (exifPtr < 0) { resolve(null); return; }
+          var exifIfd = r32(exifPtr + 8);
+          var dtPtr = findTag(exifIfd, 0x9003);
+          if (dtPtr < 0) { resolve(null); return; }
+          var strOff = r32(dtPtr + 8);
+          if (tiffStart + strOff + 19 > buf.length) { resolve(null); return; }
+          var raw = '';
+          for (var ci = 0; ci < 19; ci++) raw += String.fromCharCode(buf[tiffStart + strOff + ci]);
+          if (raw.indexOf('\0') >= 0) { resolve(null); return; }
+          var iso = raw.replace(/:/, '-').replace(/:/, '-').replace(' ', 'T');
+          resolve(iso);
+        } catch (e) { resolve(null); }
+      };
+      reader.onerror = function () { resolve(null); };
+      reader.readAsArrayBuffer(file.slice(0, 65536));
+    });
+  }
+
+  function attachPhoto(card, file) {
+    var key = card.dataset.section + '_' + card.dataset.row;
+    var prev = photoStore[key];
+    if (prev && prev.url) URL.revokeObjectURL(prev.url);
+    var url = URL.createObjectURL(file);
+    // section/row stored on the entry so export never reverse-parses the composite key
+    // (a lastIndexOf('_') split that was only correct because row indexes carry no '_').
+    photoStore[key] = { file: file, url: url, name: file.name,
+                        section: card.dataset.section, row: card.dataset.row };
+    var dz = card.querySelector('.drop-zone');
+    if (dz) {
+      var img = dz.querySelector('img');
+      if (!img) { img = document.createElement('img'); dz.appendChild(img); }
+      img.src = url;
+      dz.childNodes.forEach(function (n) {
+        if (n.nodeType === 3) n.textContent = '';
+      });
+      dz.classList.add('has-photo');
+      var removeBtn = dz.querySelector('.remove-photo');
+      if (!removeBtn) {
+        removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'remove-photo screen-only';
+        removeBtn.textContent = '×';
+        removeBtn.title = 'Remove photo';
+        removeBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          removePhoto(card);
+        });
+        dz.appendChild(removeBtn);
+      }
+    }
+    var refEl = card.querySelector('[data-field="bicrn_photo_file_ref"]');
+    if (refEl) {
+      refEl.value = file.name;
+      refEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    exifDatetime(file).then(function (dt) {
+      if (!dt) return;
+      var dtEl = card.querySelector('[data-field="bicrn_photo_datetime"]');
+      if (dtEl) {
+        dtEl.value = dt;
+        dtEl.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+  }
+
+  function removePhoto(card) {
+    var key = card.dataset.section + '_' + card.dataset.row;
+    var entry = photoStore[key];
+    if (entry && entry.url) URL.revokeObjectURL(entry.url);
+    delete photoStore[key];
+    var dz = card.querySelector('.drop-zone');
+    if (dz) {
+      var img = dz.querySelector('img');
+      if (img) img.remove();
+      var btn = dz.querySelector('.remove-photo');
+      if (btn) btn.remove();
+      dz.classList.remove('has-photo');
+      dz.childNodes.forEach(function (n) {
+        if (n.nodeType === 3) n.textContent = '';
+      });
+      dz.insertBefore(document.createTextNode('Drop a photo here'), dz.firstChild);
+    }
+    var refEl = card.querySelector('[data-field="bicrn_photo_file_ref"]');
+    if (refEl) { refEl.value = ''; refEl.dispatchEvent(new Event('input', { bubbles: true })); }
+    var dtEl = card.querySelector('[data-field="bicrn_photo_datetime"]');
+    if (dtEl) { dtEl.value = ''; dtEl.dispatchEvent(new Event('input', { bubbles: true })); }
+  }
+
+  // Many browsers leave File.type empty for formats they don't recognise by MIME sniffing -
+  // notably .heic/.heif, the default format an iPhone camera produces. A pure `/^image\//`
+  // test on an empty type silently rejects a real photo with no feedback: the technician sees
+  // nothing happen and has no way to tell "not an image" from "this tool is broken". Extension
+  // is a weaker signal (a renamed file fools it) but a false accept here just means attachPhoto
+  // gets a file it can't preview, while a false reject means a real field photo is silently lost.
+  var IMAGE_EXTENSIONS = /\.(jpe?g|png|gif|webp|bmp|tiff?|heic|heif)$/i;
+  function isImageFile(file) {
+    if (file.type) return /^image\//.test(file.type);
+    return IMAGE_EXTENSIONS.test(file.name || '');
+  }
+  function rejectNotImage(name) {
+    var st = $('#status');
+    if (st) {
+      st.className = '';
+      st.textContent = '"' + name + '" does not look like an image - nothing attached.';
+    }
+  }
+
+  function setupDropZone(dz) {
+    var card = dz.closest('.card');
+    if (!card) return;
+    dz.addEventListener('dragover', function (e) { e.preventDefault(); dz.classList.add('over'); });
+    dz.addEventListener('dragleave', function () { dz.classList.remove('over'); });
+    dz.addEventListener('drop', function (e) {
+      e.preventDefault(); dz.classList.remove('over');
+      var files = e.dataTransfer.files;
+      if (!files.length) return;
+      var f = files[0];
+      if (!isImageFile(f)) { rejectNotImage(f.name); return; }
+      attachPhoto(card, f);
+    });
+    dz.addEventListener('click', function () {
+      var inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*';
+      inp.addEventListener('change', function () {
+        if (inp.files.length) attachPhoto(card, inp.files[0]);
+      });
+      inp.click();
+    });
+  }
+  // Static drop zones were wired by wireCard(document) at startup; cloned cards get theirs
+  // inside addCard via wireCard(card) - no monkey-patch layer anymore.
+
+  // --- bulk re-attach: match multiple files to cards by filename or EXIF datetime ----
+  function bulkReattach(sectionId, files) {
+    var cards = $$('[data-section="' + sectionId + '"]');
+    var pending = [];
+    var rejected = 0;
+    for (var i = 0; i < files.length; i++) {
+      if (isImageFile(files[i])) pending.push(files[i]); else rejected++;
+    }
+    if (!pending.length) {
+      if (rejected) {
+        var st0 = $('#status');
+        if (st0) {
+          st0.className = '';
+          st0.textContent = rejected + ' file' + (rejected === 1 ? '' : 's') +
+            ' did not look like an image - nothing attached.';
+        }
+      }
+      return;
+    }
+    var matched = 0;
+    var ambiguous = 0;
+    var remaining = [];
+    pending.forEach(function (file) {
+      // Camera/phone filenames (IMG_0001.jpg, DCIM...) commonly repeat across devices - if
+      // two unclaimed cards both carry the same file_ref (e.g. two phones on one visit),
+      // the FIRST one in DOM order used to win silently, with no EXIF tie-break consulted
+      // and no indication anything was ambiguous. Collect every candidate: exactly one hit
+      // attaches directly, but two or more falls through to the EXIF-datetime pass below,
+      // which is the disambiguation mechanism that already exists for filename misses.
+      var hits = [];
+      cards.forEach(function (card) {
+        var key = card.dataset.section + '_' + card.dataset.row;
+        if (photoStore[key]) return;
+        var refEl = card.querySelector('[data-field="bicrn_photo_file_ref"]');
+        if (refEl && refEl.value && refEl.value === file.name) hits.push(card);
+      });
+      if (hits.length === 1) { attachPhoto(hits[0], file); matched++; return; }
+      if (hits.length > 1) ambiguous++;
+      remaining.push(file);
+    });
+    var byDt = [];
+    remaining.forEach(function (file) {
+      byDt.push({ file: file, dt: null });
+    });
+    var dtPromises = byDt.map(function (entry) {
+      return exifDatetime(entry.file).then(function (dt) { entry.dt = dt; });
+    });
+    Promise.all(dtPromises).then(function () {
+      byDt.forEach(function (entry) {
+        if (!entry.dt) return;
+        var best = null, bestDiff = 61000;
+        cards.forEach(function (card) {
+          var key = card.dataset.section + '_' + card.dataset.row;
+          if (photoStore[key]) return;
+          var dtEl = card.querySelector('[data-field="bicrn_photo_datetime"]');
+          if (!dtEl || !dtEl.value) return;
+          try {
+            var cardMs = new Date(dtEl.value).getTime();
+            var fileMs = new Date(entry.dt).getTime();
+            var diff = Math.abs(cardMs - fileMs);
+            if (diff < bestDiff) { bestDiff = diff; best = card; }
+          } catch (e) {}
+        });
+        if (best) { attachPhoto(best, entry.file); matched++; }
+      });
+      var unmatched = pending.length - matched;
+      var st = $('#status');
+      if (st) {
+        st.className = ambiguous ? 'err' : '';
+        st.textContent = matched + ' photo' + (matched === 1 ? '' : 's') + ' matched.' +
+          (unmatched ? '  ' + unmatched + ' file' + (unmatched === 1 ? '' : 's') +
+          ' could not be matched to a card.' : '') +
+          (ambiguous ? '  ' + ambiguous + ' file' + (ambiguous === 1 ? '' : 's') +
+          ' had the same name as more than one unclaimed card - matched by photo timestamp '
+          + 'instead where possible; check the result.' : '') +
+          (rejected ? '  ' + rejected + ' file' + (rejected === 1 ? '' : 's') +
+          ' did not look like an image and were skipped.' : '');
+      }
+    });
+  }
+
+  $$('[data-add-section]').forEach(function (btn) {
+    var sid = btn.dataset.addSection;
+    var tmpl = document.getElementById('tmpl-' + sid);
+    if (!tmpl || !tmpl.content.querySelector('.drop-zone')) return;
+    var reattach = document.createElement('button');
+    reattach.type = 'button';
+    reattach.className = 'add-card-btn screen-only';
+    reattach.textContent = 'Re-attach photos';
+    reattach.addEventListener('click', function () {
+      var inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
+      inp.addEventListener('change', function () {
+        if (inp.files.length) bulkReattach(sid, inp.files);
+      });
+      inp.click();
+    });
+    btn.parentNode.insertBefore(reattach, btn.nextSibling);
+  });
+
+  function validate() {
+    var bad = 0;
+    $$('[data-field]').forEach(function (el) { el.classList.remove('bad'); });
+    $$('[required]').forEach(function (el) {
+      if (el.disabled) return;
+      if (el.closest('.no-photos-active')) return;
+      if (el.closest('[data-show-when-device-type][hidden]')) return;
+      var row = el.closest('[data-skip-if-empty]');
+      if (row && !isRowFilled(row)) return;
+      if (!String(el.value || '').trim()) { el.classList.add('bad'); bad++; }
+    });
+    return bad;
+  }
+
+  // M13. The sheet PRINTS "two different people must sign" and said nothing when the same ID
+  // was typed twice - a rule stated and not enforced, discovered weeks later at promotion.
+  //
+  // It WARNS. It does not block. Blocking was tried and reverted (user, 2026-08-06): a
+  // technician at the end of a field day must never be prevented from saving the day's data.
+  // A flagged defect can be corrected from the desk; a refused export loses the record while
+  // the crew is still standing in the field, and they will not retype it.
+  function signoffProblem() {
+    var a = document.querySelector('[data-field="bicrn_signoff_1_person_id"]');
+    var b = document.querySelector('[data-field="bicrn_signoff_2_person_id"]');
+    if (!a || !b) return '';
+    var x = String(a.value || '').trim(), y = String(b.value || '').trim();
+    if (!x || !y) return '';
+    if (x.toLowerCase() !== y.toLowerCase()) return '';
+    a.classList.add('bad'); b.classList.add('bad');
+    return 'Both signatures carry the same person ID (' + x + '). Two DIFFERENT people must ' +
+           'sign - one signing twice is not dual sign-off, and the upload will be refused.';
+  }
+
+  // Read one control into the record it belongs to. A '< MDL' tick writes the paired
+  // _flag column and leaves the numeric column absent, so "numeric columns hold numerics"
+  // holds even for a censored measurement (M7 C.5).
+  function put(record, el) {
+    if (el.type === 'checkbox' && el.dataset.mdlFor) return;
+    if (el.type === 'radio' && !el.checked) return;
+    var value = el.value;
+    if (el.type === 'checkbox') value = el.checked ? 'TRUE' : 'FALSE';
+    if (el.dataset.transform && String(value).trim() !== '') {
+      value = convert(el.dataset.transform, value);
+    }
+    record[el.dataset.field] = (value === '' || value === null) ? SPEC.absent : value;
+  }
+  function applyMdl(record, scope) {
+    $$('input[data-mdl-for]', scope).forEach(function (box) {
+      if (!box.checked) return;
+      var target = document.getElementsByName(box.dataset.mdlFor)[0];
+      var f = target && target.dataset.field;
+      if (f) { record[f] = SPEC.absent; record[f + '_flag'] = 'below_detection'; }
+    });
+  }
+
+  // Transcription (Decision M7-0): the sheet becomes CSV with no human deciding anything.
+  // One file per bound table - a sheet is one field EVENT, and one event legitimately
+  // touches several tables. Columns not entered here are pre-printed context carried on
+  // the row, so each exported record is complete rather than a fragment to be merged.
+  function collect() {
+    var tables = {};
+    var take = function (t) { return (tables[t] = tables[t] || []); };
+
+    var broadcast = {};
+    $$('[data-broadcast]').forEach(function (el) {
+      var into = broadcast[el.dataset.broadcast] = broadcast[el.dataset.broadcast] || {};
+      put(into, el);
+    });
+
+    // One pass per repeating/record section. Rows carry data-section so a sheet with several
+    // activity modules routes each group to its own table - previously every row landed in
+    // whichever binding the LAST repeating section happened to declare.
+    SPEC.row_tables.forEach(function (rt) {
+      var sectionEl = $('#' + rt.section);
+      if (sectionEl && sectionEl.classList.contains('no-photos-active')) return;
+      if (sectionEl && sectionEl.hidden) return;
+      $$('[data-row][data-section="' + rt.section + '"]').forEach(function (row) {
+        if (row.hasAttribute('data-skip-if-empty') && !isRowFilled(row)) {
+          row._photoRowIdx = null; return;
+        }
+        var record = JSON.parse(row.dataset.key || '{}');
+        Object.keys(broadcast[rt.table] || {}).forEach(function (k) {
+          record[k] = broadcast[rt.table][k];
+        });
+        $$('[data-field]', row).forEach(function (el) {
+          if (el.closest('[data-photo-attach]')) return;
+          put(record, el);
+        });
+        applyMdl(record, row);
+        // Inline photo cards derive subject_id from the host card's field.
+        if (row.dataset.subjectFrom) {
+          var attach = row.closest('[data-photo-attach]');
+          var host = attach && attach.closest('.card');
+          if (host) {
+            var src = host.querySelector('[data-field="' + row.dataset.subjectFrom + '"]');
+            if (src) {
+              var v = src.value || src.textContent || '';
+              if (v) record.bicrn_photo_subject_id = v;
+            }
+          }
+        }
+        var arr = take(rt.table);
+        row._photoRowIdx = arr.length;
+        arr.push(record);
+      });
+    });
+
+    SPEC.singletons.forEach(function (s) {
+      var record = {};
+      s.selectors.forEach(function (sel) {
+        $$(sel + ' [data-field]').forEach(function (el) { put(record, el); });
+      });
+      if (Object.keys(record).length) {
+        var existing = take(s.table);
+        if (existing.length) { Object.assign(existing[0], record); }
+        else { existing.push(record); }
+      }
+    });
+    return tables;
+  }
+
+  function csv(records, preferred) {
+    if (!records.length) return '';
+    var cols = (preferred || []).slice();
+    records.forEach(function (r) {
+      Object.keys(r).forEach(function (k) { if (cols.indexOf(k) < 0) cols.push(k); });
+    });
+    var esc = function (v) {
+      v = (v === undefined || v === null || v === '') ? SPEC.absent : String(v);
+      return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    };
+    return [cols.join(',')].concat(records.map(function (r) {
+      return cols.map(function (c) { return esc(r[c]); }).join(',');
+    })).join('\n') + '\n';
+  }
+
+  function download(name, blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  // --- ONE archive, not N downloads -------------------------------------------------------
+  // A browser gates AUTOMATIC multi-file downloads behind a per-site permission. Exporting six
+  // CSVs fired six downloads, so a technician met a permission prompt - and if they missed or
+  // blocked it, nothing was saved while the page said it had been. Confirmed on a real machine
+  // (user, 2026-08-06), which is why this is one file.
+  //
+  // Written by hand, STORE (uncompressed), because the sheet is one self-contained file opened
+  // from a USB stick on a field tablet: no CDN, no library, no network. A CSV bundle is small
+  // and compression buys nothing worth a dependency.
+  function crc32(bytes) {
+    var table = crc32.table;
+    if (!table) {
+      table = crc32.table = new Uint32Array(256);
+      for (var i = 0; i < 256; i++) {
+        var c = i;
+        for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        table[i] = c >>> 0;
+      }
+    }
+    var crc = 0xFFFFFFFF;
+    for (var n = 0; n < bytes.length; n++) {
+      crc = (crc >>> 8) ^ table[(crc ^ bytes[n]) & 0xFF];
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function zip(files) {
+    var enc = new TextEncoder();
+    var chunks = [], central = [], offset = 0;
+    var now = new Date();
+    // MS-DOS packed date/time: seconds are stored halved, the year is offset from 1980.
+    var dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) |
+                   (now.getSeconds() >> 1)) & 0xFFFF;
+    var dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) |
+                   now.getDate()) & 0xFFFF;
+
+    function u8(values) { return new Uint8Array(values); }
+    function le16(v) { return [v & 0xFF, (v >>> 8) & 0xFF]; }
+    function le32(v) { return [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF]; }
+
+    files.forEach(function (f) {
+      var nameBytes = enc.encode(f.name);
+      var data = f.bytes instanceof Uint8Array ? f.bytes : enc.encode(f.text);
+      var sum = crc32(data);
+      var header = [].concat(
+        le32(0x04034b50), le16(20), le16(0), le16(0),      // sig, version, flags, STORE
+        le16(dosTime), le16(dosDate), le32(sum),
+        le32(data.length), le32(data.length),
+        le16(nameBytes.length), le16(0));
+      chunks.push(u8(header), nameBytes, data);
+      central.push({ name: nameBytes, crc: sum, size: data.length, offset: offset });
+      offset += header.length + nameBytes.length + data.length;
+    });
+
+    var dirStart = offset, dirSize = 0;
+    central.forEach(function (e) {
+      var rec = [].concat(
+        le32(0x02014b50), le16(20), le16(20), le16(0), le16(0),
+        le16(dosTime), le16(dosDate), le32(e.crc),
+        le32(e.size), le32(e.size),
+        le16(e.name.length), le16(0), le16(0), le16(0), le16(0),
+        le32(0), le32(e.offset));
+      chunks.push(u8(rec), e.name);
+      dirSize += rec.length + e.name.length;
+    });
+    chunks.push(u8([].concat(
+      le32(0x06054b50), le16(0), le16(0),
+      le16(central.length), le16(central.length),
+      le32(dirSize), le32(dirStart), le16(0))));
+    return new Blob(chunks, { type: 'application/zip' });
+  }
+
+  var status = $('#status');
+  var exporting = false;
+  $('#export').addEventListener('click', async function () {
+    if (exporting) return;
+    var bad = validate();
+    if (bad) {
+      status.className = 'err';
+      status.textContent = bad + ' required box' + (bad === 1 ? '' : 'es') +
+        ' still empty - fill them in, or tick the flag and say why.';
+      return;
+    }
+    exporting = true;
+    // Everything below can throw - JSON.parse in collect() on a corrupt data-key, ZIP
+    // assembly, a DOM read. Without this try/finally an exception left `exporting` stuck
+    // true forever, and every later click silently no-op'd via the guard at the top with
+    // no error shown - the button looked present but was permanently dead for the session.
+    try {
+      var signoff = signoffProblem();
+      var tables = collect();
+      $$('[data-no-photos]').forEach(function (cb) {
+        if (!cb.checked) return;
+        var va = tables['bicrn_visit_activity'] = tables['bicrn_visit_activity'] || [];
+        var has = va.some(function (r) { return r.bicrn_activity === 'photo_documentation'; });
+        if (has) {
+          va.forEach(function (r) {
+            if (r.bicrn_activity !== 'photo_documentation') return;
+            var existing = r.bicrn_activity_note;
+            if (existing && existing !== SPEC.absent)
+              r.bicrn_activity_note = 'not_performed; ' + existing;
+            else
+              r.bicrn_activity_note = 'not_performed';
+            // The toggle only hides the ADDABLE photos section - the separate photo_timing
+            // record (Start/Finished time, bound to this same bicrn_visit_activity row) is
+            // never skipped, so a technician who fills in times and THEN ticks the toggle
+            // exported real timestamps next to note=not_performed. A session that did not
+            // happen has no start or end time.
+            r.bicrn_activity_start_time = SPEC.absent;
+            r.bicrn_activity_end_time = SPEC.absent;
+          });
+        } else {
+          // V3/V6's photo_documentation activity has no photo_timing section (unlike V1/V9),
+          // so nothing already put a row here to update - this is the ONLY place that row
+          // gets created for those sheets. bicrn_activity_igsn_preprinted is required by
+          // visit_activity.schema.json and always 'false' here: a not-performed activity
+          // never had labels to preprint. bicrn_visit_id is also required and is NOT filled
+          // here - the static (non-plan-visit) sheet path does not populate it on any
+          // bicrn_visit_activity row today, pushed or pre-printed; that is plan_visit.py's
+          // job (it stamps a real visit_id when writing these rows programmatically), not
+          // something this fallback can safely invent client-side.
+          va.push({bicrn_activity: 'photo_documentation', bicrn_activity_planned: 'true',
+                   bicrn_activity_igsn_preprinted: 'false', bicrn_activity_note: 'not_performed'});
+        }
+      });
+
+      var imageFiles = [];
+      var usedPaths = {};
+      var photoRows = tables['bicrn_photo'] || [];
+      var storeKeys = Object.keys(photoStore);
+      for (var pi = 0; pi < storeKeys.length; pi++) {
+        var sk = storeKeys[pi];
+        var entry = photoStore[sk];
+        if (!entry || !entry.file) continue;
+        var secId = entry.section;
+        var rowIdx = entry.row;
+        var sec = $('#' + secId);
+        if (sec && sec.classList.contains('no-photos-active')) continue;
+        var card = $('[data-section="' + secId + '"][data-row="' + rowIdx + '"]');
+        if (!card || card._photoRowIdx == null) continue;
+        var zipName = entry.name;
+        if (usedPaths[zipName]) {
+          zipName = 'photo_' + rowIdx + '_' + zipName;
+        }
+        usedPaths[zipName] = true;
+        var zipPath = 'photos/' + zipName;
+        try {
+          var ab = await entry.file.arrayBuffer();
+          imageFiles.push({ name: zipPath, bytes: new Uint8Array(ab) });
+          if (card && card._photoRowIdx != null && card._photoRowIdx < photoRows.length) {
+            photoRows[card._photoRowIdx].bicrn_photo_file_ref = zipPath;
+          }
+        } catch (e) {}
+      }
+      var attachedPhotos = 0;
+      photoRows.forEach(function (r) {
+        var ref = r.bicrn_photo_file_ref;
+        if (ref && ref !== SPEC.absent && ref.indexOf('photos/') === 0) {
+          attachedPhotos++;
+        } else if (ref && ref !== SPEC.absent) {
+          r.bicrn_photo_file_ref = SPEC.absent;
+        }
+      });
+      var totalPhotos = photoRows.length;
+      var missingPhotos = totalPhotos - attachedPhotos;
+
+      var names = Object.keys(tables);
+      var order = {};
+      SPEC.row_tables.forEach(function (rt) { order[rt.table] = rt.columns; });
+      var csvFiles = names.map(function (t) {
+        return { name: t + '.csv', text: csv(tables[t], order[t] || null) };
+      });
+      var bundleName = (SPEC.bundle || 'crn-export') + '.zip';
+      var totalFiles = csvFiles.length + imageFiles.length;
+      download(bundleName, zip(csvFiles.concat(imageFiles)));
+      try {
+        var stk = 'crn_sheet_' + (SPEC.bundle || 'crn-export');
+        var saved = localStorage.getItem(stk);
+        if (saved) {
+          var p = JSON.parse(saved);
+          p.exported_at = new Date().toISOString();
+          localStorage.setItem(stk, JSON.stringify(p));
+        }
+      } catch (e) {}
+      var photoMsg = '';
+      if (totalPhotos > 0) {
+        if (missingPhotos === 0) {
+          photoMsg = attachedPhotos + ' of ' + totalPhotos + ' photo record' +
+            (totalPhotos === 1 ? ' has an' : 's have') + ' image' +
+            (totalPhotos === 1 ? '' : 's') + ' attached.';
+        } else {
+          photoMsg = attachedPhotos + ' of ' + totalPhotos + ' photo record' +
+            (totalPhotos === 1 ? '' : 's') + ' ha' +
+            (attachedPhotos === 1 ? 's an' : 've') + ' image' +
+            (attachedPhotos === 1 ? '' : 's') +
+            ' attached \u2014 re-attach the rest and export again, or keep this export with metadata only.';
+        }
+      }
+      // (signoff || missingPhotos > 0): a clean export and one that dropped photo
+      // attachments must not render identically - the whole point of tracking
+      // missingPhotos is to make an incomplete export visually loud, not just textual.
+      status.className = (signoff || missingPhotos > 0) ? 'err' : '';
+      status.textContent = (signoff ? signoff + '  ' : '') +
+        (photoMsg ? photoMsg + '  ' : '') +
+        'Check your downloads folder for ' + bundleName + ' (' + totalFiles + ' file' +
+        (totalFiles === 1 ? '' : 's') + '). Unzip it into a folder, then run: ' +
+        ' crn-standard validate <that folder>' +
+        (signoff ? '  \u2014 and fix the sign-off before you upload.' : '');
+    } finally {
+      exporting = false;
+    }
+  });
+  $('#print').addEventListener('click', function () { window.print(); });
+
+  // --- auto-save to localStorage ------------------------------------------------------
+  // Attached AFTER export/print so a storage failure can never prevent those from binding.
+  // Every localStorage call is wrapped: a throw degrades to no-auto-save, never to no-export.
+  (function () {
+    var indicator = $('#autosave');
+    if (!indicator) return;
+    var storageKey = 'crn_sheet_' + SPEC.bundle;
+    var available = false;
+
+    try {
+      var probe = '__crn_probe__';
+      localStorage.setItem(probe, '1');
+      if (localStorage.getItem(probe) !== '1') throw new Error('readback');
+      localStorage.removeItem(probe);
+      available = true;
+    } catch (e) {
+      indicator.innerHTML = '<span class="dot warn"></span>auto-save unavailable';
+      return;
+    }
+
+    function stamp() {
+      var d = new Date();
+      var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+        'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+
+    function shortTime(iso) {
+      if (!iso) return '';
+      var m = iso.match(/T(\d{2}:\d{2})/);
+      return m ? m[1] : iso;
+    }
+
+    function serialize() {
+      var fields = {};
+      $$('input, select, textarea').forEach(function (el) {
+        if (!el.name) return;
+        if (el.type === 'radio') {
+          if (el.checked) fields[el.name] = el.value;
+          return;
+        }
+        if (el.type === 'checkbox') {
+          fields[el.name] = el.checked;
+          return;
+        }
+        if (el.value !== '') fields[el.name] = el.value;
+      });
+      var added_cards = {};
+      $$('[data-add-section]').forEach(function (btn) {
+        var sid = btn.dataset.addSection;
+        var n = parseInt(btn.dataset.nextIndex, 10) - parseInt(btn.dataset.baseIndex, 10);
+        if (n > 0) added_cards[sid] = n;
+      });
+      var payload = {
+        sheet_id: SPEC.bundle || '',
+        sheet_version: SPEC.sheet_version || '',
+        standard_version: SPEC.standard_version || '',
+        saved_at: stamp(),
+        fields: fields,
+        added_cards: added_cards
+      };
+      try {
+        var prev = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        if (prev.exported_at) payload.exported_at = prev.exported_at;
+      } catch (e) {}
+      return payload;
+    }
+
+    function save() {
+      try {
+        var payload = serialize();
+        localStorage.setItem(storageKey, JSON.stringify(payload));
+        var readback = localStorage.getItem(storageKey);
+        if (!readback) throw new Error('readback');
+        indicator.innerHTML = '<span class="dot ok"></span>saved ' + shortTime(payload.saved_at);
+      } catch (e) {
+        indicator.innerHTML = '<span class="dot warn"></span>save failed';
+      }
+    }
+
+    function restore(payload) {
+      var ac = payload.added_cards || {};
+      Object.keys(ac).forEach(function (sid) {
+        for (var i = 0; i < ac[sid]; i++) addCard(sid);
+      });
+      var fields = payload.fields || {};
+      // Values first, MDL and radios last.
+      var mdls = [], radios = [];
+      $$('input, select, textarea').forEach(function (el) {
+        if (!el.name || !(el.name in fields)) return;
+        if (el.type === 'checkbox' && el.dataset.mdlFor) { mdls.push(el); return; }
+        if (el.type === 'radio') { radios.push(el); return; }
+        if (el.type === 'checkbox') {
+          el.checked = !!fields[el.name];
+          return;
+        }
+        el.value = fields[el.name];
+      });
+        var radioGroups = {};
+      radios.forEach(function (el) { radioGroups[el.name] = fields[el.name]; });
+      Object.keys(radioGroups).forEach(function (name) {
+        $$('input[name="' + name + '"]').forEach(function (el) {
+          el.checked = (el.value === radioGroups[name]);
+        });
+      });
+      // MDLs: dispatch change so the existing handler disables the paired numeric.
+      // Events are non-bubbling (bubbles defaults to false) — deliberate: the document-level
+      // input/change listeners must NOT fire during restore, or they trigger a spurious save.
+      mdls.forEach(function (el) {
+        el.checked = !!fields[el.name];
+        el.dispatchEvent(new Event('change'));
+      });
+      $$('input[data-transform]').forEach(function (el) {
+        if (el.dataset.transform) el.dispatchEvent(new Event('input'));
+      });
+      $$('[data-no-photos]').forEach(function (cb) {
+        cb.dispatchEvent(new Event('change'));
+      });
+      syncDeviceTypeSections();
+    }
+
+    function discard() {
+      try { localStorage.removeItem(storageKey); } catch (e) {}
+      var banner = $('#autosave-banner');
+      if (banner) banner.remove();
+      indicator.innerHTML = '<span class="dot ok"></span>auto-save on';
+    }
+
+    try {
+      var raw = localStorage.getItem(storageKey);
+      if (raw) {
+        var payload = JSON.parse(raw);
+        var saved = payload.saved_at || '';
+        var versionMatch = (payload.standard_version === SPEC.standard_version) &&
+                           (payload.sheet_version === SPEC.sheet_version);
+        if (versionMatch) {
+          restore(payload);
+          var banner = document.createElement('div');
+          banner.className = 'autosave-banner screen-only';
+          banner.id = 'autosave-banner';
+          banner.innerHTML = 'Restored work saved ' + shortTime(saved) +
+            ' <button type="button" id="discard-saved">Discard</button>';
+          var sheet = $('.sheet');
+          if (sheet && sheet.firstChild) {
+            sheet.insertBefore(banner, sheet.children[1] || null);
+          }
+          $('#discard-saved').addEventListener('click', function () {
+            if (confirm('Discard all saved progress? This cannot be undone.')) {
+              discard();
+              location.reload();
+            }
+          });
+          indicator.innerHTML = '<span class="dot ok"></span>restored';
+        } else {
+          // Version mismatch: offer download instead of restoring into possibly-wrong boxes.
+          var banner = document.createElement('div');
+          banner.className = 'autosave-banner screen-only';
+          banner.id = 'autosave-banner';
+          banner.innerHTML = 'Saved data from a different version found (saved ' +
+            shortTime(saved) + '). ' +
+            '<button type="button" id="download-saved">Download as JSON</button> ' +
+            '<button type="button" id="discard-saved">Discard</button>';
+          var sheet = $('.sheet');
+          if (sheet && sheet.firstChild) {
+            sheet.insertBefore(banner, sheet.children[1] || null);
+          }
+          $('#download-saved').addEventListener('click', function () {
+            var blob = new Blob([raw], { type: 'application/json' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = storageKey + '-backup.json';
+            a.click();
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+          });
+          $('#discard-saved').addEventListener('click', function () {
+            if (confirm('Discard all saved progress? This cannot be undone.')) {
+              discard();
+            }
+          });
+          indicator.innerHTML = '<span class="dot warn"></span>version mismatch';
+        }
+      } else {
+        indicator.innerHTML = '<span class="dot ok"></span>auto-save on';
+      }
+    } catch (e) {
+      indicator.innerHTML = '<span class="dot ok"></span>auto-save on';
+    }
+
+    var timer = null;
+    document.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(save, 500);
+    });
+    document.addEventListener('change', function () {
+      clearTimeout(timer);
+      timer = setTimeout(save, 500);
+    });
+  })();
+})();
+</script>
+</body>
+</html>

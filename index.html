@@ -1,0 +1,43 @@
+<title>CRN Field Sheets</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --ink: #16191d; --ink-soft: #4a5159; --rule: #c3c9d1; --rule-firm: #7b848f; --ground: #ffffff; --panel: #f4f6f8; --accent: #1c4f7c; --flag: #8a4b12; --box: #fdfdfd;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #e7eaee; --ink-soft: #a8b1bb; --rule: #3a424c; --rule-firm: #6d7883; --ground: #14171a; --panel: #1c2126; --accent: #7fb3dd; --flag: #d9a066; --box: #1a1f24; }
+}
+:root[data-theme="dark"] { --ink: #e7eaee; --ink-soft: #a8b1bb; --rule: #3a424c; --rule-firm: #6d7883; --ground: #14171a; --panel: #1c2126; --accent: #7fb3dd; --flag: #d9a066; --box: #1a1f24; }
+:root[data-theme="light"] { --ink: #16191d; --ink-soft: #4a5159; --rule: #c3c9d1; --rule-firm: #7b848f; --ground: #ffffff; --panel: #f4f6f8; --accent: #1c4f7c; --flag: #8a4b12; --box: #fdfdfd; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 2rem; background: var(--ground); color: var(--ink);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+}
+.wrap { max-width: 56rem; margin: 0 auto; }
+h1 { font-size: 1.3rem; margin: 0 0 .25rem; }
+.sub { color: var(--ink-soft); font-size: .82rem; margin: 0 0 1.5rem; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { border: 1px solid var(--rule); padding: .4rem .6rem; text-align: left; }
+th { background: var(--panel); font-size: .72rem; text-transform: uppercase;
+     letter-spacing: .05em; font-weight: 600; }
+td.n { text-align: center; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+footer { margin-top: 1.5rem; font-size: .72rem; color: var(--ink-soft);
+          border-top: 1px solid var(--rule); padding-top: .6rem; }
+</style>
+<div class="wrap">
+<h1>CRN Field Sheets</h1>
+<p class="sub">Standard 0.3.0-dev &middot; 16 sheets</p>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>ID</th><th>Title</th><th>Streams</th><th>Version</th><th>Sections</th></tr></thead>
+<tbody>
+<tr><td><a href="./v1-site-visit.html">V1</a></td><td><a href="./v1-site-visit.html">Site visit</a></td><td>soil</td><td>1.0.0</td><td class="n">9</td></tr><tr><td><a href="./v10-monolith-extraction.html">V10</a></td><td><a href="./v10-monolith-extraction.html">Monolith extraction</a></td><td>porewater</td><td>1.0.0</td><td class="n">7</td></tr><tr><td><a href="./v11-device-install.html">V11</a></td><td><a href="./v11-device-install.html">Device installation</a></td><td>device, porewater, collector, site</td><td>0.2.0</td><td class="n">15</td></tr><tr><td><a href="./v12-agricultural-amendments.html">V12</a></td><td><a href="./v12-agricultural-amendments.html">Agricultural amendments</a></td><td>management</td><td>0.1.0</td><td class="n">10</td></tr><tr><td><a href="./v13-plot-delineation.html">V13</a></td><td><a href="./v13-plot-delineation.html">Plot delineation</a></td><td>site</td><td>0.1.0</td><td class="n">9</td></tr><tr><td><a href="./v14-fiz-soil.html">V14</a></td><td><a href="./v14-fiz-soil.html">FIZ soil coring</a></td><td>soil</td><td>0.1.0</td><td class="n">8</td></tr><tr><td><a href="./v15-aiz-soil.html">V15</a></td><td><a href="./v15-aiz-soil.html">Agronomic + deep soil augering</a></td><td>soil</td><td>0.1.0</td><td class="n">8</td></tr><tr><td><a href="./v16-bulk-density.html">V16</a></td><td><a href="./v16-bulk-density.html">Bulk density intact cores</a></td><td>soil</td><td>0.2.0</td><td class="n">7</td></tr><tr><td><a href="./v2-feedstock-receipt.html">V2</a></td><td><a href="./v2-feedstock-receipt.html">Feedstock lot receipt</a></td><td>feedstock</td><td>1.0.0</td><td class="n">8</td></tr><tr><td><a href="./v3-install-visit.html">V3</a></td><td><a href="./v3-install-visit.html">Equipment installation visit</a></td><td>device, porewater, collector</td><td>1.0.0</td><td class="n">12</td></tr><tr><td><a href="./v4-gas-round.html">V4</a></td><td><a href="./v4-gas-round.html">Soil-gas grab round</a></td><td>device</td><td>1.0.0</td><td class="n">10</td></tr><tr><td><a href="./v5-aqueous-round.html">V5</a></td><td><a href="./v5-aqueous-round.html">Aqueous collection and splitting</a></td><td>porewater</td><td>1.0.0</td><td class="n">10</td></tr><tr><td><a href="./v6-collector-round.html">V6</a></td><td><a href="./v6-collector-round.html">Integrating collector round</a></td><td>collector</td><td>1.0.0</td><td class="n">8</td></tr><tr><td><a href="./v7-tracer-test.html">V7</a></td><td><a href="./v7-tracer-test.html">Tracer test</a></td><td>tracer</td><td>1.0.0</td><td class="n">10</td></tr><tr><td><a href="./v8-feedstock-application.html">V8</a></td><td><a href="./v8-feedstock-application.html">Feedstock application</a></td><td>management</td><td>1.0.0</td><td class="n">12</td></tr><tr><td><a href="./v9-biomass-harvest.html">V9</a></td><td><a href="./v9-biomass-harvest.html">Biomass harvest visit</a></td><td>biomass</td><td>1.0.0</td><td class="n">13</td></tr>
+</tbody>
+</table>
+</div>
+<footer>Generated by <code>python sheets/build.py render</code>. Open any sheet link above to review.</footer>
+</div>
